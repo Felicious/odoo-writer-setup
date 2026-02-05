@@ -31,22 +31,25 @@ setup_fake_docs_repo() {
     git -C "$DOCS_REPO" config user.name "Test"
 }
 
-# Create a git-cloned directory with .vale.ini to act as the vale repo.
-# Uses a local bare repo as the remote so `git pull` works.
+# Clone the real odoo-vale-linter repo once per test file.
+# Call from setup_file. Cleaned up by teardown_vale_repo_cache.
+clone_vale_repo_cache() {
+    VALE_REPO_CACHE="$(mktemp -d)"
+    export VALE_REPO_CACHE
+    git clone --quiet --depth 1 https://github.com/felicious/odoo-vale-linter.git \
+        "$VALE_REPO_CACHE/odoo-vale-linter"
+}
+
+teardown_vale_repo_cache() {
+    if [ -n "$VALE_REPO_CACHE" ] && [ -d "$VALE_REPO_CACHE" ]; then
+        rm -rf "$VALE_REPO_CACHE"
+    fi
+}
+
+# Copy the cached vale repo clone into the per-test temp directory.
 # Sets VALE_REPO to the created path.
-setup_fake_vale_repo() {
+setup_vale_repo() {
     VALE_REPO="${TEST_TEMP_DIR}/odoo-vale-linter"
     export VALE_REPO
-    git init --quiet --bare "$TEST_TEMP_DIR/vale-bare.git"
-    git clone --quiet "$TEST_TEMP_DIR/vale-bare.git" "$VALE_REPO"
-    mkdir -p "$VALE_REPO/styles"
-    cat > "$VALE_REPO/.vale.ini" <<'EOF'
-StylesPath = styles
-MinAlertLevel = warning
-[*.rst]
-BasedOnStyles = Vale
-EOF
-    git -C "$VALE_REPO" add -A
-    git -C "$VALE_REPO" -c user.email=t@t.com -c user.name=T commit --quiet -m "init"
-    git -C "$VALE_REPO" push --quiet
+    cp -a "$VALE_REPO_CACHE/odoo-vale-linter" "$VALE_REPO"
 }

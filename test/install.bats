@@ -1,5 +1,14 @@
 #!/usr/bin/env bats
 
+setup_file() {
+    load 'test_helper/common-setup'
+    clone_vale_repo_cache
+}
+
+teardown_file() {
+    teardown_vale_repo_cache
+}
+
 setup() {
     load 'test_helper/common-setup'
     setup_temp_dir
@@ -24,7 +33,7 @@ teardown() {
 
 @test "installs pre-commit hook" {
     setup_fake_docs_repo
-    setup_fake_vale_repo
+    setup_vale_repo
 
     run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" bash "$PROJECT_ROOT/install.sh"
     assert_success
@@ -33,7 +42,7 @@ teardown() {
 
 @test "warns when tests/main.py is missing" {
     setup_fake_docs_repo
-    setup_fake_vale_repo
+    setup_vale_repo
 
     run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" bash "$PROJECT_ROOT/install.sh"
     assert_success
@@ -44,7 +53,7 @@ teardown() {
     setup_fake_docs_repo
     mkdir -p "$DOCS_REPO/tests"
     touch "$DOCS_REPO/tests/main.py"
-    setup_fake_vale_repo
+    setup_vale_repo
 
     run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" bash "$PROJECT_ROOT/install.sh"
     assert_success
@@ -53,7 +62,7 @@ teardown() {
 
 @test "pulls existing vale repo" {
     setup_fake_docs_repo
-    setup_fake_vale_repo
+    setup_vale_repo
 
     run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" bash "$PROJECT_ROOT/install.sh"
     assert_success
@@ -62,7 +71,7 @@ teardown() {
 
 @test "reports all tools installed when present" {
     setup_fake_docs_repo
-    setup_fake_vale_repo
+    setup_vale_repo
 
     if ! command -v uv &> /dev/null || ! command -v vale &> /dev/null; then
         skip "uv and/or vale not in PATH"
