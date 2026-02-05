@@ -17,6 +17,7 @@ if [ "$ARCH" != "x86_64" ]; then
     exit 1
 fi
 
+GUM_VERSION="${GUM_VERSION:-0.17.0}"
 DOCS_REPO="${DOCS_REPO:-$HOME/Documents/odoo/documentation}"
 VALE_REPO="${VALE_REPO:-$HOME/Documents/odoo/odoo-vale-linter}"
 
@@ -39,9 +40,9 @@ echo ""
 
 # Install gum for better UX (hardcoded amd64)
 if ! command -v gum &> /dev/null; then
-    echo "Installing Gum..."
+    echo "Installing Gum v${GUM_VERSION}..."
     TEMP_DIR=$(mktemp -d)
-    curl -sL https://github.com/charmbracelet/gum/releases/latest/download/gum_Linux_amd64.tar.gz | \
+    curl -sL "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_x86_64.tar.gz" | \
         tar xz -C "$TEMP_DIR"
     mkdir -p "$HOME/.local/bin"
     mv "$TEMP_DIR/gum" "$HOME/.local/bin/"
