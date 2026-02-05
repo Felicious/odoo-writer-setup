@@ -6,32 +6,17 @@ Installs a **pre-commit hook** that automatically runs [Vale](https://vale.sh/) 
 
 ## Installation
 
+Run this single command:
+
 ```bash
-git clone https://github.com/felicious/docs-hooks.git ~/Documents/odoo/docs-hooks
-cd ~/Documents/odoo/docs-hooks
-./install.sh
+git clone https://github.com/felicious/docs-hooks.git ~/Documents/odoo/docs-hooks && ~/Documents/odoo/docs-hooks/install.sh
 ```
 
 ### What gets installed
 
 - **Pre-commit hook** copied into your documentation repo's `.git/hooks/`
-- **Vale config** symlinked from [odoo-vale-linter](https://github.com/felicious/odoo-vale-linter) into the documentation repo
+- **[odoo-vale-linter](https://github.com/felicious/odoo-vale-linter)** cloned if missing (the hook references its `.vale.ini` directly)
 - **Gum**, **Vale**, and **uv** installed if missing
-
-### Custom paths
-
-By default the installer assumes:
-
-| Repo | Default path |
-|------|-------------|
-| Documentation | `~/Documents/odoo/documentation` |
-| Vale linter | `~/Documents/odoo/odoo-vale-linter` |
-
-Override with environment variables:
-
-```bash
-DOCS_REPO=/path/to/documentation VALE_REPO=/path/to/odoo-vale-linter ./install.sh
-```
 
 ## Usage
 
@@ -47,6 +32,21 @@ To update hooks after pulling changes:
 
 ```bash
 cd ~/Documents/odoo/docs-hooks && git pull && ./install.sh
+```
+
+## Custom paths
+
+By default the installer assumes:
+
+| Repo | Default path |
+|------|-------------|
+| Documentation | `~/Documents/odoo/documentation` |
+| Vale linter | `~/Documents/odoo/odoo-vale-linter` |
+
+Override with environment variables:
+
+```bash
+DOCS_REPO=/path/to/documentation VALE_REPO=/path/to/odoo-vale-linter ./install.sh
 ```
 
 ## Troubleshooting
