@@ -51,7 +51,7 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp "$SCRIPT_DIR/hooks/pre-commit" "$DOCS_REPO/.git/hooks/pre-commit"
 chmod +x "$DOCS_REPO/.git/hooks/pre-commit"
-echo "${GREEN}✅ Hook installed${RST}"
+echo "${GREEN}✅ Pre-commit Hook installed${RST}"
 
 # Handle Vale linter repo
 if [ -d "$VALE_REPO/.git" ]; then
@@ -61,7 +61,7 @@ else
     echo "📦 Cloning odoo-vale-linter..."
     mkdir -p "$(dirname "$VALE_REPO")"
     git clone --quiet https://github.com/felicious/odoo-vale-linter.git "$VALE_REPO"
-    echo "${GREEN}✅ Cloned vale-linter${RST}"
+    echo "${GREEN}✅ Cloned odoo-vale-linter to $VALE_REPO${RST}"
 fi
 
 # Verify Sphinx linter is set up
