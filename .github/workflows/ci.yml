@@ -81,8 +81,10 @@ jobs:
       - name: Install documentation Python dependencies
         run: |
           cd "$HOME/Documents/odoo/documentation"
-          uv pip install --system -r requirements.txt
-          uv pip install --system -r tests/requirements.txt
+          uv venv .venv
+          uv pip install -r requirements.txt
+          uv pip install -r tests/requirements.txt
+          echo "$HOME/Documents/odoo/documentation/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Verify hook was installed
         run: |
