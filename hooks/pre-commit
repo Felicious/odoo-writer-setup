@@ -11,9 +11,9 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 # Get staged .rst files (added, copied, or modified)
-STAGED_RST=$(git diff --cached --name-only --diff-filter=ACM -- '*.rst')
+mapfile -t STAGED_RST < <(git diff --cached --name-only --diff-filter=ACM -- '*.rst')
 
-if [ -z "$STAGED_RST" ]; then
+if [ "${#STAGED_RST[@]}" -eq 0 ]; then
     exit 0
 fi
 
@@ -26,11 +26,11 @@ ERRORS=0
 if command -v vale &> /dev/null; then
     echo -e "${BOLD}Running Vale...${RESET}"
     VALE_OUTPUT=""
-    for file in $STAGED_RST; do
+    for file in "${STAGED_RST[@]}"; do
         if [ -f "$file" ]; then
             OUTPUT=$(vale "$file" 2>&1)
             EXIT_CODE=$?
-            if [ $EXIT_CODE -ne 0 ]; then
+            if [ "$EXIT_CODE" -ne 0 ]; then
                 VALE_OUTPUT+="$OUTPUT"$'\n'
             fi
         fi
@@ -58,10 +58,10 @@ if [ -f "$SPHINX_LINTER" ]; then
     if command -v uv &> /dev/null; then
         echo -e "${BOLD}Running Sphinx linter...${RESET}"
         # Pass staged .rst files as arguments
-        SPHINX_OUTPUT=$(uv run "$SPHINX_LINTER" $STAGED_RST 2>&1)
+        SPHINX_OUTPUT=$(uv run "$SPHINX_LINTER" "${STAGED_RST[@]}" 2>&1)
         SPHINX_EXIT=$?
 
-        if [ $SPHINX_EXIT -ne 0 ]; then
+        if [ "$SPHINX_EXIT" -ne 0 ]; then
             echo "$SPHINX_OUTPUT"
             echo -e "${RED}✗ Sphinx linter found issues${RESET}"
             echo ""
@@ -77,7 +77,7 @@ if [ -f "$SPHINX_LINTER" ]; then
 fi
 
 # --- Result ---
-if [ $ERRORS -ne 0 ]; then
+if [ "$ERRORS" -ne 0 ]; then
     echo -e "${RED}${BOLD}Commit blocked.${RESET} Fix the issues above or use ${BOLD}git commit --no-verify${RESET} to skip."
     exit 1
 fi

@@ -22,7 +22,7 @@ jobs:
             curl \
             ca-certificates \
             sudo \
-            snapd
+            shellcheck
 
       - name: Checkout docs-hooks
         uses: actions/checkout@v6
@@ -32,14 +32,14 @@ jobs:
         with:
           repository: odoo/documentation
           path: docs-repo
-          depth: 1
+          fetch-depth: 1
 
       - name: Checkout odoo-vale-linter repo
         uses: actions/checkout@v6
         with:
           repository: Felicious/odoo-vale-linter
           path: vale-repo
-          depth: 1
+          fetch-depth: 1
 
       - name: Move repos to expected locations
         run: |
@@ -47,37 +47,62 @@ jobs:
           mv docs-repo "$HOME/Documents/odoo/documentation"
           mv vale-repo "$HOME/Documents/odoo/odoo-vale-linter"
 
+      - name: Lint scripts
+        run: |
+          shellcheck install.sh
+          shellcheck hooks/pre-commit
+
       - name: Syntax-check scripts
         run: |
           bash -n install.sh
           bash -n hooks/pre-commit
 
-      - name: Test install script (non-interactive)
+      - name: Install vale
+        env:
+          # Pin version; update as needed from https://github.com/errata-ai/vale/releases
+          VALE_VERSION: "3.9.4"
         run: |
-          # Pre-install uv so the installer doesn't need to
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          TEMP_DIR=$(mktemp -d)
+          curl -sL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+            | tar xz -C "$TEMP_DIR"
+          install -m 755 "$TEMP_DIR/vale" /usr/local/bin/
+          rm -rf "$TEMP_DIR"
+          vale --version
 
-          # Run install (skip gum confirm prompts by piping yes)
-          VALE_REPO="$HOME/Documents/odoo/odoo-vale-linter" \
-            yes n | ./install.sh || true
+      - name: Test install script
+        run: |
+          CI=true VALE_REPO="$HOME/Documents/odoo/odoo-vale-linter" ./install.sh
+
+      - name: Add tool paths
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Verify hook was installed
         run: |
           test -x "$HOME/Documents/odoo/documentation/.git/hooks/pre-commit"
-          echo "Pre-commit hook installed and executable"
 
       - name: Verify vale config symlinks
         run: |
           test -L "$HOME/Documents/odoo/documentation/.vale.ini"
           test -L "$HOME/Documents/odoo/documentation/.vale-styles"
-          echo "Vale config symlinks created"
 
       - name: Test pre-commit hook (no staged files)
         run: |
           cd "$HOME/Documents/odoo/documentation"
           git config user.email "ci@test.com"
           git config user.name "CI"
-          # Hook should exit 0 when no .rst files are staged
           .git/hooks/pre-commit
-          echo "Hook exits cleanly with no staged .rst files"
+
+      - name: Test pre-commit hook (with staged .rst file)
+        run: |
+          cd "$HOME/Documents/odoo/documentation"
+          printf 'Test Page\n=========\n\nThis is a test paragraph for CI.\n' > _test_ci.rst
+          git add _test_ci.rst
+          # Hook may exit non-zero if linters flag content; we verify it runs
+          OUTPUT=$(.git/hooks/pre-commit 2>&1) || true
+          echo "$OUTPUT"
+          # Verify vale was invoked
+          echo "$OUTPUT" | grep -q "Running Vale"
+          # Verify hook ran to completion (pass or fail both indicate full execution)
+          echo "$OUTPUT" | grep -qE "(All checks passed|Commit blocked)"

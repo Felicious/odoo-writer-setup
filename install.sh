@@ -21,6 +21,21 @@ GUM_VERSION="${GUM_VERSION:-0.17.0}"
 DOCS_REPO="${DOCS_REPO:-$HOME/Documents/odoo/documentation}"
 VALE_REPO="${VALE_REPO:-$HOME/Documents/odoo/odoo-vale-linter}"
 
+# CI mode: non-interactive fallbacks for gum
+if [ -n "$CI" ]; then
+    gum() {
+        case "$1" in
+            confirm) return 0 ;;
+            spin)
+                while [ "$1" != "--" ]; do shift; done
+                shift
+                "$@"
+                ;;
+            style) ;;
+        esac
+    }
+fi
+
 # Validate documentation repo exists
 if [ ! -d "$DOCS_REPO/.git" ]; then
     echo "Error: Documentation repo not found"
@@ -39,7 +54,7 @@ echo "✓ Found documentation repo at: $DOCS_REPO"
 echo ""
 
 # Install gum for better UX (hardcoded amd64)
-if ! command -v gum &> /dev/null; then
+if [ -z "$CI" ] && ! command -v gum &> /dev/null; then
     echo "Installing Gum v${GUM_VERSION}..."
     TEMP_DIR=$(mktemp -d)
     curl -sL "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_x86_64.tar.gz" | \
@@ -130,7 +145,7 @@ if [ ${#MISSING[@]} -gt 0 ]; then
         done
         gum style --foreground 212 "✓ Tools installed"
 
-        if [[ " ${MISSING[@]} " =~ " uv " ]]; then
+        if [[ " ${MISSING[*]} " =~ " uv " ]]; then
             gum style --foreground 245 "  Note: Restart your terminal or run: source ~/.bashrc"
         fi
     fi
