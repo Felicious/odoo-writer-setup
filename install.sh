@@ -43,7 +43,7 @@ if ! command -v gum &> /dev/null; then
     echo "Installing Gum v${GUM_VERSION}..."
     TEMP_DIR=$(mktemp -d)
     curl -sL "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_x86_64.tar.gz" | \
-        tar xz -C "$TEMP_DIR"
+        tar xz -C "$TEMP_DIR" --strip-components=1
     mkdir -p "$HOME/.local/bin"
     mv "$TEMP_DIR/gum" "$HOME/.local/bin/"
     rm -rf "$TEMP_DIR"
