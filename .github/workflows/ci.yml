@@ -78,6 +78,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
+      - name: Install documentation Python dependencies
+        run: |
+          cd "$HOME/Documents/odoo/documentation"
+          uv pip install --system -r requirements.txt
+          uv pip install --system -r tests/requirements.txt
+
       - name: Verify hook was installed
         run: |
           test -x "$HOME/Documents/odoo/documentation/.git/hooks/pre-commit"
