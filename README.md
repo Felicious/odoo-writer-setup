@@ -16,7 +16,7 @@ Run this single command (safe to re-run):
 
 - **Pre-commit hook** copied into your documentation repo's `.git/hooks/`
 - **[odoo-vale-linter](https://github.com/felicious/odoo-vale-linter)** cloned if missing (the hook references its `.vale.ini` directly)
-- **Gum**, **Vale**, and **uv** installed if missing
+- **uv** and **vale** are installed if missing
 
 ## Usage
 
