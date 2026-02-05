@@ -81,7 +81,7 @@ jobs:
       - name: Install documentation Python dependencies
         run: |
           cd "$HOME/Documents/odoo/documentation"
-          uv venv .venv
+          uv venv --python 3.12 .venv
           uv pip install -r requirements.txt
           uv pip install -r tests/requirements.txt
           echo "$HOME/Documents/odoo/documentation/.venv/bin" >> "$GITHUB_PATH"
