@@ -65,6 +65,7 @@ if [ -z "$CI" ] && ! command -v gum &> /dev/null; then
 
     # Add to PATH if needed
     if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        # shellcheck disable=SC2016
         echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
         export PATH="$HOME/.local/bin:$PATH"
     fi
