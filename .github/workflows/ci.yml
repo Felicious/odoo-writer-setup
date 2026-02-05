@@ -17,13 +17,13 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
+          # libjpeg-dev, libpng-dev, zlib1g-dev: needed for pillow (odoo/documentation)
           apt-get install -y --no-install-recommends \
             git \
             curl \
             ca-certificates \
             sudo \
             shellcheck \
-            # Needed for pillow python dependency in odoo/documentation
             libjpeg-dev \
             libpng-dev \
             zlib1g-dev
