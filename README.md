@@ -4,12 +4,12 @@ Git hooks and tooling for the Odoo documentation repo.
 
 Installs a **pre-commit hook** that automatically runs [Vale](https://vale.sh/) and the Sphinx linter against staged `.rst` files before each commit.
 
-## Installation
+## Install / Update
 
-Run this single command:
+Run this single command (safe to re-run):
 
 ```bash
-git clone https://github.com/felicious/docs-hooks.git ~/Documents/odoo/docs-hooks && ~/Documents/odoo/docs-hooks/install.sh
+(git clone git@github.com:felicious/odoo-documentation-hooks.git ~/Documents/odoo/docs-hooks 2>/dev/null || git -C ~/Documents/odoo/docs-hooks pull) && ~/Documents/odoo/docs-hooks/install.sh
 ```
 
 ### What gets installed
@@ -26,27 +26,6 @@ To skip checks for a specific commit:
 
 ```bash
 git commit --no-verify
-```
-
-To update hooks after pulling changes:
-
-```bash
-cd ~/Documents/odoo/docs-hooks && git pull && ./install.sh
-```
-
-## Custom paths
-
-By default the installer assumes:
-
-| Repo | Default path |
-|------|-------------|
-| Documentation | `~/Documents/odoo/documentation` |
-| Vale linter | `~/Documents/odoo/odoo-vale-linter` |
-
-Override with environment variables:
-
-```bash
-DOCS_REPO=/path/to/documentation VALE_REPO=/path/to/odoo-vale-linter ./install.sh
 ```
 
 ## Troubleshooting

@@ -1,10 +1,20 @@
 #!/bin/bash
 set -e
+trap 'exit 130' INT
+
+# Catppuccin Mocha colors (truecolor)
+GREEN=$'\033[38;2;166;227;161m'
+PEACH=$'\033[38;2;250;179;135m'
+RED=$'\033[38;2;243;139;168m'
+MAUVE=$'\033[38;2;203;166;247m'
+SUBTEXT=$'\033[38;2;166;173;200m'
+BOLD=$'\033[1m'
+RST=$'\033[0m'
 
 # Check architecture early (assume amd64 for Thinkpad/Lenovo laptops)
 ARCH=$(uname -m)
 if [ "$ARCH" != "x86_64" ]; then
-    echo "Error: Unsupported architecture detected: $ARCH"
+    echo "${RED}❌ Unsupported architecture: $ARCH${RST}"
     echo ""
     echo "This installer is designed for amd64/x86_64 systems (Thinkpad/Lenovo laptops)."
     echo ""
@@ -17,148 +27,92 @@ if [ "$ARCH" != "x86_64" ]; then
     exit 1
 fi
 
-GUM_VERSION="${GUM_VERSION:-0.17.0}"
 DOCS_REPO="${DOCS_REPO:-$HOME/Documents/odoo/documentation}"
 VALE_REPO="${VALE_REPO:-$HOME/Documents/odoo/odoo-vale-linter}"
 
-# CI mode: non-interactive fallbacks for gum
-if [ -n "$CI" ]; then
-    gum() {
-        case "$1" in
-            confirm) return 0 ;;
-            spin) while [ "$1" != "--" ]; do shift; done; shift; "$@" > /dev/null ;;
-            style) ;;
-        esac
-    }
-fi
-
 # Validate documentation repo exists
 if [ ! -d "$DOCS_REPO/.git" ]; then
-    echo "Error: Documentation repo not found"
+    echo "${RED}❌ Documentation repo not found at $DOCS_REPO${RST}"
     echo ""
-    echo "Expected location: $DOCS_REPO"
+    echo "If you already have it cloned elsewhere:"
+    echo "  mv /path/to/documentation $DOCS_REPO"
     echo ""
-    echo "Action required:"
-    echo "  1. Clone the repo: git clone git@github.com:odoo/documentation.git"
-    echo "  2. Move it to: $DOCS_REPO"
-    echo "  3. Run this installer again"
+    echo "If you haven't cloned it yet:"
+    echo "  git clone git@github.com:odoo/documentation.git $DOCS_REPO"
     exit 1
 fi
 
-echo "✓ Architecture: $ARCH (amd64)"
-echo "✓ Found documentation repo at: $DOCS_REPO"
+echo "${MAUVE}${BOLD}📝 Odoo Documentation Hooks Installer${RST}"
 echo ""
-
-# Install gum for better UX (hardcoded amd64)
-if [ -z "$CI" ] && ! command -v gum &> /dev/null; then
-    echo "Installing Gum v${GUM_VERSION}..."
-    TEMP_DIR=$(mktemp -d)
-    curl -sL "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_x86_64.tar.gz" | \
-        tar xz -C "$TEMP_DIR" --strip-components=1
-    mkdir -p "$HOME/.local/bin"
-    mv "$TEMP_DIR/gum" "$HOME/.local/bin/"
-    rm -rf "$TEMP_DIR"
-
-    # Add to PATH if needed
-    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-        # shellcheck disable=SC2016
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-        export PATH="$HOME/.local/bin:$PATH"
-    fi
-    echo "✓ Gum installed"
-    echo ""
-fi
-
-gum style --foreground 212 --bold "📝 Odoo Documentation Hooks Installer"
+echo "${GREEN}✅ Found documentation repo${RST}"
 echo ""
 
 # Install git hooks
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-gum spin --spinner dot --title "Installing pre-commit hook..." -- \
-    cp "$SCRIPT_DIR/hooks/pre-commit" "$DOCS_REPO/.git/hooks/pre-commit"
+cp "$SCRIPT_DIR/hooks/pre-commit" "$DOCS_REPO/.git/hooks/pre-commit"
 chmod +x "$DOCS_REPO/.git/hooks/pre-commit"
-gum style --foreground 212 "✓ Hook installed"
+echo "${GREEN}✅ Hook installed${RST}"
 
 # Handle Vale linter repo
 if [ -d "$VALE_REPO/.git" ]; then
-    gum style --foreground 212 "✓ Found odoo-vale-linter"
-    if gum confirm "Update vale-linter repo?"; then
-        gum spin --spinner dot --title "Updating vale-linter..." -- \
-            git -C "$VALE_REPO" pull
-    fi
+    echo "${GREEN}✅ Found odoo-vale-linter${RST}"
+    git -C "$VALE_REPO" pull --quiet
 else
-    gum spin --spinner dot --title "Cloning odoo-vale-linter..." -- \
-        bash -c "mkdir -p '$(dirname "$VALE_REPO")' && \
-                 git clone https://github.com/felicious/odoo-vale-linter.git '$VALE_REPO'"
-    gum style --foreground 212 "✓ Cloned vale-linter"
-fi
-
-echo ""
-gum style --border normal --padding "0 1" --border-foreground 212 \
-    "Checking required tools..."
-echo ""
-
-# Check for required tools
-MISSING=()
-if ! command -v vale &> /dev/null; then
-    MISSING+=("vale")
-fi
-if ! command -v uv &> /dev/null; then
-    MISSING+=("uv")
+    echo "📦 Cloning odoo-vale-linter..."
+    mkdir -p "$(dirname "$VALE_REPO")"
+    git clone --quiet https://github.com/felicious/odoo-vale-linter.git "$VALE_REPO"
+    echo "${GREEN}✅ Cloned vale-linter${RST}"
 fi
 
 # Verify Sphinx linter is set up
 if [ ! -f "$DOCS_REPO/tests/main.py" ]; then
-    gum style --foreground 208 "⚠ Warning: tests/main.py not found in documentation repo"
-    gum style --foreground 245 "  Sphinx linting will be skipped during commits"
+    echo "${PEACH}⚠️  tests/main.py not found in documentation repo${RST}"
+    echo "${SUBTEXT}   Sphinx linting will be skipped during commits${RST}"
     echo ""
 fi
 
+# Check for required tools (uv first — vale install depends on it)
+MISSING=()
+if ! command -v uv &> /dev/null; then
+    MISSING+=("uv")
+fi
+if ! command -v vale &> /dev/null; then
+    MISSING+=("vale")
+fi
+
 if [ ${#MISSING[@]} -gt 0 ]; then
-    gum style --foreground 208 "Missing tools:"
+    echo "🔧 Installing missing tools: ${MAUVE}${MISSING[*]}${RST}"
     for tool in "${MISSING[@]}"; do
-        gum style --foreground 212 "  • $tool"
+        case "$tool" in
+            vale)
+                # Install vale via uv (PyPi) since we need python + uv anyways
+                # and the alternatives are more complex (download binary + setup PATH)
+                # or via snap which require sudo
+
+                # Requires the docutils for rst2html binary
+                uv tool install --with-executables-from docutils vale
+                ;;
+            uv)
+                curl -LsSf https://astral.sh/uv/install.sh | sh
+                ;;
+        esac
     done
-    echo ""
+    echo "${GREEN}✅ Tools installed${RST}"
 
-    if gum confirm "Install missing tools now?"; then
-        for tool in "${MISSING[@]}"; do
-            case "$tool" in
-                vale)
-                    gum spin --spinner dot --title "Installing vale..." -- \
-                        sudo snap install vale
-                    ;;
-                uv)
-                    gum spin --spinner dot --title "Installing uv..." -- \
-                        bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
-                    ;;
-            esac
-        done
-        gum style --foreground 212 "✓ Tools installed"
-
-        if [[ " ${MISSING[*]} " =~ " uv " ]]; then
-            gum style --foreground 245 "  Note: Restart your terminal or run: source ~/.bashrc"
-        fi
+    if [[ " ${MISSING[*]} " =~ " uv " ]]; then
+        echo "${SUBTEXT}   Restart your terminal or run: source ~/.bashrc${RST}"
     fi
 else
-    gum style --foreground 212 "✓ All tools installed"
+    echo "${GREEN}✅ All tools installed${RST}"
 fi
 
 # To sync third-party Vale styles (if added to .vale.ini):
 #   vale --config="$VALE_REPO/.vale.ini" sync
 
 echo ""
-
-gum style \
-    --border double \
-    --padding "1 2" \
-    --border-foreground 212 \
-    --bold \
-    "✓ Setup Complete!" \
-    "" \
-    "Your commits will now be checked automatically." \
-    "" \
-    "To update hooks:" \
-    "  cd ~/Documents/odoo/docs-hooks && git pull && ./install.sh" \
-    "" \
-    "To skip checks: git commit --no-verify"
+echo "${GREEN}${BOLD}✅ Setup complete!${RST} Your commits will now be checked automatically."
+echo ""
+echo "${SUBTEXT}To update hooks:${RST}"
+echo "  cd ~/Documents/odoo/docs-hooks && git pull && ./install.sh"
+echo ""
+echo "${SUBTEXT}To skip checks:${RST} git commit --no-verify"
