@@ -24,6 +24,7 @@ jobs:
             ca-certificates \
             sudo \
             shellcheck \
+            build-essential \
             libjpeg-dev \
             libpng-dev \
             zlib1g-dev
