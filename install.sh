@@ -26,11 +26,7 @@ if [ -n "$CI" ]; then
     gum() {
         case "$1" in
             confirm) return 0 ;;
-            spin)
-                while [ "$1" != "--" ]; do shift; done
-                shift
-                "$@"
-                ;;
+            spin) while [ "$1" != "--" ]; do shift; done; shift; "$@" > /dev/null ;;
             style) ;;
         esac
     }
@@ -97,12 +93,6 @@ else
     gum style --foreground 212 "✓ Cloned vale-linter"
 fi
 
-# Link Vale config
-gum spin --spinner dot --title "Linking Vale configuration..." -- \
-    bash -c "ln -sf '$VALE_REPO/.vale.ini' '$DOCS_REPO/.vale.ini' && \
-             ln -sf '$VALE_REPO/styles' '$DOCS_REPO/.vale-styles'"
-gum style --foreground 212 "✓ Config linked"
-
 echo ""
 gum style --border normal --padding "0 1" --border-foreground 212 \
     "Checking required tools..."
@@ -154,13 +144,8 @@ else
     gum style --foreground 212 "✓ All tools installed"
 fi
 
-# Sync Vale styles
-if command -v vale &> /dev/null; then
-    echo ""
-    gum spin --spinner dot --title "Syncing Vale styles..." -- \
-        vale --config="$DOCS_REPO/.vale.ini" sync
-    gum style --foreground 212 "✓ Styles synced"
-fi
+# To sync third-party Vale styles (if added to .vale.ini):
+#   vale --config="$VALE_REPO/.vale.ini" sync
 
 echo ""
 

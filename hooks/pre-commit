@@ -10,6 +10,8 @@ YELLOW='\033[0;33m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
+VALE_REPO="${VALE_REPO:-$HOME/Documents/odoo/odoo-vale-linter}"
+
 # Get staged .rst files (added, copied, or modified)
 mapfile -t STAGED_RST < <(git diff --cached --name-only --diff-filter=ACM -- '*.rst')
 
@@ -28,7 +30,7 @@ if command -v vale &> /dev/null; then
     VALE_OUTPUT=""
     for file in "${STAGED_RST[@]}"; do
         if [ -f "$file" ]; then
-            OUTPUT=$(vale "$file" 2>&1)
+            OUTPUT=$(vale --config="$VALE_REPO/.vale.ini" "$file" 2>&1)
             EXIT_CODE=$?
             if [ "$EXIT_CODE" -ne 0 ]; then
                 VALE_OUTPUT+="$OUTPUT"$'\n'
@@ -58,7 +60,7 @@ if [ -f "$SPHINX_LINTER" ]; then
     if command -v uv &> /dev/null; then
         echo -e "${BOLD}Running Sphinx linter...${RESET}"
         # Pass staged .rst files as arguments
-        SPHINX_OUTPUT=$(uv run "$SPHINX_LINTER" "${STAGED_RST[@]}" 2>&1)
+        SPHINX_OUTPUT=$(uv run --with sphinxlint "$SPHINX_LINTER" "${STAGED_RST[@]}" 2>&1)
         SPHINX_EXIT=$?
 
         if [ "$SPHINX_EXIT" -ne 0 ]; then
