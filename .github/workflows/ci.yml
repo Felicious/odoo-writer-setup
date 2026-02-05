@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  test-install:
-    name: Test install script
+  test:
+    name: Lint & Test
     runs-on: ubuntu-latest
     container:
       image: ubuntu:24.04
@@ -17,40 +17,16 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          # libjpeg-dev, libpng-dev, zlib1g-dev: needed for pillow (odoo/documentation)
           apt-get install -y --no-install-recommends \
             git \
             curl \
             ca-certificates \
-            sudo \
-            shellcheck \
-            build-essential \
-            libjpeg-dev \
-            libpng-dev \
-            zlib1g-dev
+            shellcheck
 
       - name: Checkout docs-hooks
         uses: actions/checkout@v6
-
-      - name: Checkout documentation repo
-        uses: actions/checkout@v6
         with:
-          repository: odoo/documentation
-          path: docs-repo
-          fetch-depth: 1
-
-      - name: Checkout odoo-vale-linter repo
-        uses: actions/checkout@v6
-        with:
-          repository: Felicious/odoo-vale-linter
-          path: vale-repo
-          fetch-depth: 1
-
-      - name: Move repos to expected locations
-        run: |
-          mkdir -p "$HOME/Documents/odoo"
-          mv docs-repo "$HOME/Documents/odoo/documentation"
-          mv vale-repo "$HOME/Documents/odoo/odoo-vale-linter"
+          submodules: true
 
       - name: Lint scripts
         run: |
@@ -62,60 +38,6 @@ jobs:
           bash -n install.sh
           bash -n hooks/pre-commit
 
-      - name: Install vale
-        env:
-          # Pin version; update as needed from https://github.com/errata-ai/vale/releases
-          VALE_VERSION: "3.9.4"
+      - name: Run BATS tests
         run: |
-          TEMP_DIR=$(mktemp -d)
-          curl -sL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
-            | tar xz -C "$TEMP_DIR"
-          install -m 755 "$TEMP_DIR/vale" /usr/local/bin/
-          rm -rf "$TEMP_DIR"
-          vale --version
-
-      - name: Test install script
-        run: |
-          CI=true VALE_REPO="$HOME/Documents/odoo/odoo-vale-linter" ./install.sh
-
-      - name: Add tool paths
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
-      - name: Install documentation Python dependencies
-        run: |
-          cd "$HOME/Documents/odoo/documentation"
-          uv venv --python 3.12 .venv
-          uv pip install -r requirements.txt
-          uv pip install -r tests/requirements.txt
-          echo "$HOME/Documents/odoo/documentation/.venv/bin" >> "$GITHUB_PATH"
-
-      - name: Verify hook was installed
-        run: |
-          test -x "$HOME/Documents/odoo/documentation/.git/hooks/pre-commit"
-
-      - name: Verify vale repo exists
-        run: |
-          test -d "$HOME/Documents/odoo/odoo-vale-linter/.git"
-          test -f "$HOME/Documents/odoo/odoo-vale-linter/.vale.ini"
-
-      - name: Test pre-commit hook (no staged files)
-        run: |
-          cd "$HOME/Documents/odoo/documentation"
-          git config user.email "ci@test.com"
-          git config user.name "CI"
-          .git/hooks/pre-commit
-
-      - name: Test pre-commit hook (with staged .rst file)
-        run: |
-          cd "$HOME/Documents/odoo/documentation"
-          printf 'Test Page\n=========\n\nThis is a test paragraph for CI.\n' > _test_ci.rst
-          git add _test_ci.rst
-          # Hook may exit non-zero if linters flag content; we verify it runs
-          OUTPUT=$(.git/hooks/pre-commit 2>&1) || true
-          echo "$OUTPUT"
-          # Verify vale was invoked
-          echo "$OUTPUT" | grep -q "Running Vale"
-          # Verify hook ran to completion (pass or fail both indicate full execution)
-          echo "$OUTPUT" | grep -qE "(All checks passed|Commit blocked)"
+          ./test/bats/bin/bats test/
