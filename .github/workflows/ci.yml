@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-install:
+    name: Test install script
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git \
+            curl \
+            ca-certificates \
+            sudo \
+            snapd
+
+      - name: Checkout docs-hooks
+        uses: actions/checkout@v6
+
+      - name: Checkout documentation repo
+        uses: actions/checkout@v6
+        with:
+          repository: odoo/documentation
+          path: docs-repo
+          depth: 1
+
+      - name: Checkout odoo-vale-linter repo
+        uses: actions/checkout@v6
+        with:
+          repository: Felicious/odoo-vale-linter
+          path: vale-repo
+          depth: 1
+
+      - name: Move repos to expected locations
+        run: |
+          mkdir -p "$HOME/Documents/odoo"
+          mv docs-repo "$HOME/Documents/odoo/documentation"
+          mv vale-repo "$HOME/Documents/odoo/odoo-vale-linter"
+
+      - name: Syntax-check scripts
+        run: |
+          bash -n install.sh
+          bash -n hooks/pre-commit
+
+      - name: Test install script (non-interactive)
+        run: |
+          # Install gum so the script can proceed
+          TEMP_DIR=$(mktemp -d)
+          curl -sL https://github.com/charmbracelet/gum/releases/latest/download/gum_Linux_amd64.tar.gz | \
+            tar xz -C "$TEMP_DIR"
+          mkdir -p "$HOME/.local/bin"
+          mv "$TEMP_DIR/gum" "$HOME/.local/bin/"
+          rm -rf "$TEMP_DIR"
+          export PATH="$HOME/.local/bin:$PATH"
+
+          # Pre-install uv so the installer doesn't need to
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+          # Run install (skip gum confirm prompts by piping yes)
+          VALE_REPO="$HOME/Documents/odoo/odoo-vale-linter" \
+            yes n | ./install.sh || true
+
+      - name: Verify hook was installed
+        run: |
+          test -x "$HOME/Documents/odoo/documentation/.git/hooks/pre-commit"
+          echo "Pre-commit hook installed and executable"
+
+      - name: Verify vale config symlinks
+        run: |
+          test -L "$HOME/Documents/odoo/documentation/.vale.ini"
+          test -L "$HOME/Documents/odoo/documentation/.vale-styles"
+          echo "Vale config symlinks created"
+
+      - name: Test pre-commit hook (no staged files)
+        run: |
+          cd "$HOME/Documents/odoo/documentation"
+          git config user.email "ci@test.com"
+          git config user.name "CI"
+          # Hook should exit 0 when no .rst files are staged
+          .git/hooks/pre-commit
+          echo "Hook exits cleanly with no staged .rst files"
