@@ -14,7 +14,7 @@ SSH is required because writers will push to the documentation repo.
 
 ## Run Manually (With Options)
 
-If you want to pass options like `--skip-apt`, run `setup.sh` directly:
+If you want skip the apt package installations or don't have sudo, run `setup.sh` directly with `--skip-apt`:
 
 ```bash
 cd ~/Documents/odoo/writer-setup
