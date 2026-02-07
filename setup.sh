@@ -43,6 +43,27 @@ check_system() {
     fi
 }
 
+check_github_ssh() {
+    if ! command -v ssh &> /dev/null; then
+        echo "${RED}ssh not found. Please install OpenSSH client and try again.${RST}"
+        return 1
+    fi
+
+    echo "${MAUVE}${BOLD}Checking GitHub SSH authentication...${RST}"
+    local output
+    output=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 || true)
+
+    if echo "$output" | grep -qi "successfully authenticated"; then
+        echo "${GREEN}GitHub SSH authentication OK${RST}"
+        return 0
+    fi
+
+    echo "${RED}GitHub SSH authentication failed.${RST}"
+    echo "${SUBTEXT}   Run: ssh -T git@github.com${RST}"
+    echo "${SUBTEXT}   Then add your SSH public key to GitHub and re-run setup.${RST}"
+    return 1
+}
+
 install_apt_packages() {
     echo "${MAUVE}${BOLD}Installing system packages...${RST}"
     sudo apt-get update -qq
@@ -94,7 +115,12 @@ clone_or_update_repos() {
     else
         echo "Cloning documentation repo..."
         mkdir -p "$(dirname "$DOCS_REPO")"
-        git clone git@github.com:odoo/documentation.git "$DOCS_REPO"
+        if ! git clone git@github.com:odoo/documentation.git "$DOCS_REPO"; then
+            echo "${RED}Failed to clone documentation repo via SSH.${RST}"
+            echo "${SUBTEXT}   Configure your GitHub SSH key and re-run setup.${RST}"
+            echo "${SUBTEXT}   See README: SSH setup instructions.${RST}"
+            return 1
+        fi
         echo "${GREEN}Cloned documentation repo to $DOCS_REPO${RST}"
     fi
 
@@ -144,6 +170,7 @@ verify_installation() {
         echo "${GREEN}  documentation repo present${RST}"
     else
         echo "${PEACH}  documentation repo missing${RST}"
+        echo "${SUBTEXT}   SSH may not be configured for GitHub${RST}"
         ok=false
     fi
 
@@ -199,6 +226,7 @@ main() {
     install_uv
     install_vale
     create_directories
+    check_github_ssh
     clone_or_update_repos
     install_hook
     verify_installation

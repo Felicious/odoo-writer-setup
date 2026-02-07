@@ -10,6 +10,8 @@ Run this single command (safe to re-run at any time):
 (git clone git@github.com:felicious/odoo-writer-setup.git ~/Documents/odoo/writer-setup 2>/dev/null || git -C ~/Documents/odoo/writer-setup pull) && ~/Documents/odoo/writer-setup/setup.sh
 ```
 
+SSH is required because writers will push to the documentation repo.
+
 ## What It Does
 
 1. **System packages** — installs git, make, curl, build tools, and image libraries via apt
@@ -61,6 +63,16 @@ cd ~/Documents/odoo/writer-setup && git pull && ./setup.sh
 
 - Ubuntu/Debian (amd64/x86_64)
 - sudo access (for apt packages, or use `--skip-apt`)
+
+## Preflight (Recommended)
+
+If you plan to push documentation changes, make sure GitHub SSH auth is working:
+
+```bash
+ssh -T git@github.com
+```
+
+If that fails, configure your SSH key before running `setup.sh`. The setup script performs this check up front and will stop if SSH isn’t working.
 
 ## Troubleshooting
 
