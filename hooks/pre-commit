@@ -28,21 +28,29 @@ ERRORS=0
 if command -v vale &> /dev/null; then
     echo -e "${BOLD}Running Vale...${RESET}"
     VALE_OUTPUT=""
+    VALE_EXIT=0
     for file in "${STAGED_RST[@]}"; do
         if [ -f "$file" ]; then
             OUTPUT=$(vale --config="$VALE_REPO/.vale.ini" "$file" 2>&1)
             EXIT_CODE=$?
+            VALE_OUTPUT+="$OUTPUT"$'\n'
             if [ "$EXIT_CODE" -ne 0 ]; then
-                VALE_OUTPUT+="$OUTPUT"$'\n'
+                VALE_EXIT=1
             fi
         fi
     done
 
     if [ -n "$VALE_OUTPUT" ]; then
         echo "$VALE_OUTPUT"
-        echo -e "${RED}✗ Vale found issues${RESET}"
+        if [ "$VALE_EXIT" -ne 0 ]; then
+            echo -e "${RED}✗ Vale found issues${RESET}"
+        else
+            echo -e "${GREEN}✓ Vale completed (no blocking issues)${RESET}"
+        fi
         echo ""
-        ERRORS=1
+        if [ "$VALE_EXIT" -ne 0 ]; then
+            ERRORS=1
+        fi
     else
         echo -e "${GREEN}✓ Vale passed${RESET}"
         echo ""
