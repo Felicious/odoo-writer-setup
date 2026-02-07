@@ -55,11 +55,12 @@ fi
 # --- Sphinx linter ---
 REPO_ROOT=$(git rev-parse --show-toplevel)
 SPHINX_LINTER="$REPO_ROOT/tests/main.py"
+MAX_LINE_LENGTH="${SPHINX_MAX_LINE_LENGTH:-100}"
 
 if [ -f "$SPHINX_LINTER" ]; then
     if command -v uv &> /dev/null; then
         echo -e "${BOLD}Running Sphinx linter...${RESET}"
-        SPHINX_OUTPUT=$(uv run "$SPHINX_LINTER" "${STAGED_RST[@]}" 2>&1)
+        SPHINX_OUTPUT=$(REVIEW=1 uv run "$SPHINX_LINTER" --max-line-length="$MAX_LINE_LENGTH" "${STAGED_RST[@]}" 2>&1)
         SPHINX_EXIT=$?
 
         if [ "$SPHINX_EXIT" -ne 0 ]; then
