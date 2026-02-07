@@ -9,6 +9,7 @@ setup() {
     git init --quiet "$REPO_DIR"
     git -C "$REPO_DIR" config user.email "test@test.com"
     git -C "$REPO_DIR" config user.name "Test"
+    git -C "$REPO_DIR" config commit.gpgsign false
     # Initial commit so HEAD exists
     touch "$REPO_DIR/.gitkeep"
     git -C "$REPO_DIR" add .gitkeep

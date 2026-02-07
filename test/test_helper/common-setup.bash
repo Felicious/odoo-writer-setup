@@ -29,6 +29,7 @@ setup_fake_docs_repo() {
     # Configure git user for commits in tests
     git -C "$DOCS_REPO" config user.email "test@test.com"
     git -C "$DOCS_REPO" config user.name "Test"
+    git -C "$DOCS_REPO" config commit.gpgsign false
 }
 
 # Clone the real odoo-vale-linter repo once per test file.

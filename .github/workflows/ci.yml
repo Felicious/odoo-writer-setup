@@ -23,19 +23,19 @@ jobs:
             ca-certificates \
             shellcheck
 
-      - name: Checkout docs-hooks
+      - name: Checkout
         uses: actions/checkout@v6
         with:
           submodules: true
 
       - name: Lint scripts
         run: |
-          shellcheck install.sh
+          shellcheck setup.sh
           shellcheck hooks/pre-commit
 
       - name: Syntax-check scripts
         run: |
-          bash -n install.sh
+          bash -n setup.sh
           bash -n hooks/pre-commit
 
       - name: Run BATS tests
