@@ -7,7 +7,7 @@ One-command environment setup for Odoo documentation writers. Installs all tools
 Run this single command (safe to re-run at any time):
 
 ```bash
-(git clone git@github.com:felicious/odoo-writer-setup.git ~/Documents/odoo/writer-setup 2>/dev/null || git -C ~/Documents/odoo/writer-setup pull) && ~/Documents/odoo/writer-setup/setup.sh
+(git clone git@github.com:felicious/odoo-writer-setup.git ~/Documents/odoo/odoo-writer-setup 2>/dev/null || git -C ~/Documents/odoo/odoo-writer-setup pull) && ~/Documents/odoo/odoo-writer-setup/setup.sh
 ```
 
 SSH is required because writers will push to the documentation repo.
@@ -17,7 +17,7 @@ SSH is required because writers will push to the documentation repo.
 If you want skip the apt package installations or don't have sudo, run `setup.sh` directly with `--skip-apt`:
 
 ```bash
-cd ~/Documents/odoo/writer-setup
+cd ~/Documents/odoo/odoo-writer-setup
 git pull
 ./setup.sh --skip-apt
 ```
@@ -60,7 +60,7 @@ git commit --no-verify
 The setup is fully idempotent — safe to re-run at any time. It will update repos and tools to their latest versions.
 
 ```bash
-cd ~/Documents/odoo/writer-setup && git pull && ./setup.sh
+cd ~/Documents/odoo/odoo-writer-setup && git pull && ./setup.sh
 ```
 
 ## Requirements
