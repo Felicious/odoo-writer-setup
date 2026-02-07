@@ -12,6 +12,16 @@ Run this single command (safe to re-run at any time):
 
 SSH is required because writers will push to the documentation repo.
 
+## Run Manually (With Options)
+
+If you want to pass options like `--skip-apt`, run `setup.sh` directly:
+
+```bash
+cd ~/Documents/odoo/writer-setup
+git pull
+./setup.sh --skip-apt
+```
+
 ## What It Does
 
 1. **System packages** — installs git, make, curl, build tools, and image libraries via apt
@@ -20,12 +30,6 @@ SSH is required because writers will push to the documentation repo.
 4. **Directories** — creates `~/Documents/odoo/` workspace
 5. **Repos** — clones (or updates) the documentation and [odoo-vale-linter](https://github.com/felicious/odoo-vale-linter) repos
 6. **Pre-commit hook** — installs a git hook that automatically runs Vale and the Sphinx linter against staged `.rst` files before each commit
-
-## Options
-
-| Flag | Description |
-|------|-------------|
-| `--skip-apt` | Skip apt package installation (useful for re-runs or if you lack sudo) |
 
 ## Configuration
 
