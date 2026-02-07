@@ -173,11 +173,12 @@ teardown() {
     setup_fake_docs_repo
     setup_vale_repo
 
-    run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" \
+    run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" SKIP_GITHUB_SSH_CHECK=1 \
         bash "$PROJECT_ROOT/setup.sh" --skip-apt
     assert_success
     assert_output --partial "Odoo Writer Setup"
     assert_output --partial "Skipping apt packages"
+    assert_output --partial "Skipping GitHub SSH check"
     assert [ -x "$DOCS_REPO/.git/hooks/pre-commit" ]
 }
 
@@ -186,12 +187,12 @@ teardown() {
     setup_vale_repo
 
     # Run once
-    run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" \
+    run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" SKIP_GITHUB_SSH_CHECK=1 \
         bash "$PROJECT_ROOT/setup.sh" --skip-apt
     assert_success
 
     # Run again
-    run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" \
+    run env DOCS_REPO="$DOCS_REPO" VALE_REPO="$VALE_REPO" SKIP_GITHUB_SSH_CHECK=1 \
         bash "$PROJECT_ROOT/setup.sh" --skip-apt
     assert_success
     assert_output --partial "Found documentation repo"

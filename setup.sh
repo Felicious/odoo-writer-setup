@@ -205,9 +205,11 @@ verify_installation() {
 
 main() {
     local skip_apt=false
+    local skip_ssh=false
     for arg in "$@"; do
         case "$arg" in
             --skip-apt) skip_apt=true ;;
+            --skip-ssh|--skip-github-ssh) skip_ssh=true ;;
         esac
     done
 
@@ -226,7 +228,11 @@ main() {
     install_uv
     install_vale
     create_directories
-    check_github_ssh
+    if [ "${SKIP_GITHUB_SSH_CHECK:-0}" = "1" ] || [ "$skip_ssh" = true ]; then
+        echo "${SUBTEXT}Skipping GitHub SSH check${RST}"
+    else
+        check_github_ssh
+    fi
     clone_or_update_repos
     install_hook
     verify_installation
