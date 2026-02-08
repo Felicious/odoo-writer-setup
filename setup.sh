@@ -73,6 +73,7 @@ install_apt_packages() {
         curl \
         ca-certificates \
         build-essential \
+        pngquant \
         python3 \
         python3-dev \
         libpng-dev \
@@ -157,7 +158,7 @@ verify_installation() {
     echo "${MAUVE}${BOLD}Verification${RST}"
     local ok=true
 
-    for tool in git make uv vale; do
+    for tool in git make uv vale pngquant; do
         if command -v "$tool" &> /dev/null; then
             echo "${GREEN}  $tool found${RST}"
         else
