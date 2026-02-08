@@ -136,7 +136,140 @@ teardown() {
     assert_output --partial "uv already installed"
 }
 
+# --- Shell detection ---
+
+@test "check_shell passes on bash" {
+    source "$PROJECT_ROOT/setup.sh"
+    export SHELL="/bin/bash"
+    run check_shell
+    assert_success
+}
+
+@test "check_shell warns on zsh but succeeds" {
+    source "$PROJECT_ROOT/setup.sh"
+    export SHELL="/bin/zsh"
+    run check_shell
+    assert_success
+    assert_output --partial "Your login shell is not bash"
+    assert_output --partial "Starship will be configured for bash anyway"
+}
+
+@test "check_shell warns on fish but succeeds" {
+    source "$PROJECT_ROOT/setup.sh"
+    export SHELL="/usr/bin/fish"
+    run check_shell
+    assert_success
+    assert_output --partial "Your login shell is not bash"
+}
+
+# --- Starship installation ---
+
+@test "install_starship reports already installed when present" {
+    source "$PROJECT_ROOT/setup.sh"
+    if ! command -v starship &> /dev/null; then
+        skip "starship not in PATH"
+    fi
+    run install_starship
+    assert_success
+    assert_output --partial "starship already installed"
+}
+
+# --- Bashrc configuration ---
+
+@test "configure_bashrc creates .bashrc if missing" {
+    source "$PROJECT_ROOT/setup.sh"
+    export HOME="$TEST_TEMP_DIR"
+    run configure_bashrc
+    assert_success
+    assert [ -f "$TEST_TEMP_DIR/.bashrc" ]
+    assert_output --partial "Creating new .bashrc file"
+}
+
+@test "configure_bashrc adds starship init to .bashrc" {
+    source "$PROJECT_ROOT/setup.sh"
+    export HOME="$TEST_TEMP_DIR"
+    touch "$TEST_TEMP_DIR/.bashrc"
+    run configure_bashrc
+    assert_success
+    assert_output --partial "starship configured in .bashrc"
+    assert_output --partial "source ~/.bashrc"
+    grep -qF "starship init bash" "$TEST_TEMP_DIR/.bashrc"
+}
+
+@test "configure_bashrc is idempotent" {
+    source "$PROJECT_ROOT/setup.sh"
+    export HOME="$TEST_TEMP_DIR"
+    touch "$TEST_TEMP_DIR/.bashrc"
+
+    # Run once
+    configure_bashrc > /dev/null
+
+    # Run again
+    run configure_bashrc
+    assert_success
+    assert_output --partial "starship already configured"
+
+    # Verify only one occurrence
+    count=$(grep -c "starship init bash" "$TEST_TEMP_DIR/.bashrc" || echo 0)
+    [ "$count" -eq 1 ]
+}
+
+@test "configure_bashrc detects manual starship configuration" {
+    source "$PROJECT_ROOT/setup.sh"
+    export HOME="$TEST_TEMP_DIR"
+
+    # Manually add starship without our marker comment
+    cat > "$TEST_TEMP_DIR/.bashrc" << 'EOF'
+# User's manual config
+eval "$(starship init bash)"
+EOF
+
+    run configure_bashrc
+    assert_success
+    assert_output --partial "starship already configured"
+}
+
+@test "configure_bashrc includes marker comment" {
+    source "$PROJECT_ROOT/setup.sh"
+    export HOME="$TEST_TEMP_DIR"
+    touch "$TEST_TEMP_DIR/.bashrc"
+
+    configure_bashrc > /dev/null
+
+    grep -qF "# Starship prompt (added by odoo-writer-setup)" "$TEST_TEMP_DIR/.bashrc"
+}
+
 # --- Verification ---
+
+@test "verify_installation checks for starship" {
+    source "$PROJECT_ROOT/setup.sh"
+    setup_fake_docs_repo
+
+    # Create mock starship binary
+    mkdir -p "$TEST_TEMP_DIR/bin"
+    echo '#!/bin/bash' > "$TEST_TEMP_DIR/bin/starship"
+    chmod +x "$TEST_TEMP_DIR/bin/starship"
+    export PATH="$TEST_TEMP_DIR/bin:$PATH"
+
+    run verify_installation
+    assert_success
+    assert_output --partial "starship found"
+}
+
+@test "verify_installation confirms bashrc configuration" {
+    source "$PROJECT_ROOT/setup.sh"
+    export HOME="$TEST_TEMP_DIR"
+    setup_fake_docs_repo
+
+    # Configure starship in bashrc
+    cat > "$TEST_TEMP_DIR/.bashrc" << 'EOF'
+eval "$(starship init bash)"
+EOF
+
+    run verify_installation
+    assert_success
+    assert_output --partial "starship configured in .bashrc"
+}
 
 @test "verify_installation reports tools and repos" {
     source "$PROJECT_ROOT/setup.sh"

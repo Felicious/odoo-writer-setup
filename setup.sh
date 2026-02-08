@@ -43,6 +43,14 @@ check_system() {
     fi
 }
 
+check_shell() {
+    if [ -z "$SHELL" ] || [[ ! "$SHELL" =~ bash$ ]]; then
+        echo "${PEACH}Note: Your login shell is not bash${RST}"
+        echo "${SUBTEXT}   Starship will be configured for bash anyway${RST}"
+        echo "${SUBTEXT}   If you use zsh/fish, configure manually: https://starship.rs/guide/#step-2-set-up-your-shell-to-use-starship${RST}"
+    fi
+}
+
 check_github_ssh() {
     if ! command -v ssh &> /dev/null; then
         echo "${RED}ssh not found. Please install OpenSSH client and try again.${RST}"
@@ -103,6 +111,38 @@ install_vale() {
     echo "${GREEN}vale installed${RST}"
 }
 
+install_starship() {
+    if command -v starship &> /dev/null; then
+        echo "${GREEN}starship already installed${RST}"
+        return 0
+    fi
+    echo "Installing starship..."
+    curl -sS https://starship.rs/install.sh | sh -s -- --yes
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "${GREEN}starship installed${RST}"
+}
+
+configure_bashrc() {
+    if [ -f "$HOME/.bashrc" ] && grep -qF "starship init bash" "$HOME/.bashrc"; then
+        echo "${GREEN}starship already configured in .bashrc${RST}"
+        return 0
+    fi
+
+    if [ ! -f "$HOME/.bashrc" ]; then
+        echo "${PEACH}Creating new .bashrc file${RST}"
+        touch "$HOME/.bashrc"
+    fi
+
+    cat >> "$HOME/.bashrc" << 'EOF'
+
+# Starship prompt (added by odoo-writer-setup)
+eval "$(starship init bash)"
+EOF
+
+    echo "${GREEN}starship configured in .bashrc${RST}"
+    echo "${SUBTEXT}   Run: source ~/.bashrc${RST}"
+}
+
 create_directories() {
     mkdir -p "$ODOO_DIR"
     echo "${GREEN}Directory structure ready ($ODOO_DIR)${RST}"
@@ -158,7 +198,7 @@ verify_installation() {
     echo "${MAUVE}${BOLD}Verification${RST}"
     local ok=true
 
-    for tool in git make uv vale pngquant; do
+    for tool in git make uv vale pngquant starship; do
         if command -v "$tool" &> /dev/null; then
             echo "${GREEN}  $tool found${RST}"
         else
@@ -186,6 +226,13 @@ verify_installation() {
         echo "${GREEN}  pre-commit hook installed${RST}"
     else
         echo "${PEACH}  pre-commit hook missing${RST}"
+        ok=false
+    fi
+
+    if [ -f "$HOME/.bashrc" ] && grep -qF "starship init bash" "$HOME/.bashrc"; then
+        echo "${GREEN}  starship configured in .bashrc${RST}"
+    else
+        echo "${PEACH}  starship not configured in .bashrc${RST}"
         ok=false
     fi
 
@@ -219,6 +266,7 @@ main() {
 
     check_architecture
     check_system
+    check_shell
 
     if [ "$skip_apt" = false ]; then
         install_apt_packages
@@ -228,6 +276,8 @@ main() {
 
     install_uv
     install_vale
+    install_starship
+    configure_bashrc
     create_directories
     if [ "${SKIP_GITHUB_SSH_CHECK:-0}" = "1" ] || [ "$skip_ssh" = true ]; then
         echo "${SUBTEXT}Skipping GitHub SSH check${RST}"
