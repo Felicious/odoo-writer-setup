@@ -133,6 +133,7 @@ configure_bashrc() {
     fi
 
     # Check if PATH already includes ~/.local/bin
+    # shellcheck disable=SC2016  # We want the literal string '$HOME/.local/bin'
     if ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc"; then
         NEEDS_UPDATE=1
     fi
@@ -148,6 +149,7 @@ configure_bashrc() {
     fi
 
     # Add PATH if not present
+    # shellcheck disable=SC2016  # We want the literal string '$HOME/.local/bin'
     if ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc"; then
         cat >> "$HOME/.bashrc" << 'EOF'
 
