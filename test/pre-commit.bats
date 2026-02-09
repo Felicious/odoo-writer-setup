@@ -154,3 +154,79 @@ EOF
     assert_failure
     assert_output --partial "Commit blocked"
 }
+
+@test "validates PNG width and blocks commit" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+
+    # Create a 1000x500 test PNG (exceeds 768px)
+    convert -size 1000x500 xc:blue "$REPO_DIR/wide.png"
+    git -C "$REPO_DIR" add wide.png
+
+    run git -C "$REPO_DIR" hook run pre-commit
+    assert_failure
+    assert_output --partial "Image validation failed"
+    assert_output --partial "wide.png: 1000px wide"
+    assert_output --partial "optimize-images"
+}
+
+@test "validates PNG bit depth and blocks commit" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+
+    # Create a 16-bit RGB PNG (gradient creates multi-bit depth)
+    convert -size 500x300 gradient:blue-red "$REPO_DIR/rgb.png"
+    git -C "$REPO_DIR" add rgb.png
+
+    run git -C "$REPO_DIR" hook run pre-commit
+    assert_failure
+    assert_output --partial "Image validation failed"
+    assert_output --partial "rgb.png:"
+    assert_output --partial "bit color depth"
+    assert_output --partial "optimize-images"
+}
+
+@test "allows 933px width images" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+
+    # Create a 933x500 test PNG (exception width)
+    convert -size 933x500 xc:blue "$REPO_DIR/special.png"
+    git -C "$REPO_DIR" add special.png
+
+    run git -C "$REPO_DIR" hook run pre-commit
+    assert_success
+    assert_output --partial "All images validated"
+}
+
+@test "allows optimized PNG images" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+
+    # Create an 8-bit 500px PNG (optimal)
+    convert -size 500x300 xc:blue -depth 8 -type Palette "$REPO_DIR/optimal.png"
+    git -C "$REPO_DIR" add optimal.png
+
+    run git -C "$REPO_DIR" hook run pre-commit
+    assert_success
+    assert_output --partial "All images validated"
+}
+
+@test "warns when ImageMagick not installed for validation" {
+    # Hide ImageMagick from PATH
+    PATH="/usr/bin:/bin"
+    if command -v identify &> /dev/null; then
+        skip "cannot hide ImageMagick from PATH in this environment"
+    fi
+
+    echo "fake png" > "$REPO_DIR/test.png"
+    git -C "$REPO_DIR" add test.png
+
+    run env PATH="$PATH" git -C "$REPO_DIR" hook run pre-commit
+    assert_success
+    assert_output --partial "ImageMagick not found"
+}

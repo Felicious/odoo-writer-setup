@@ -124,6 +124,30 @@ teardown() {
     refute_output --partial "tests/main.py not found"
 }
 
+@test "install_optimize_images_script creates symlink in ~/.local/bin" {
+    source "$PROJECT_ROOT/setup.sh"
+    local BIN_DIR="$HOME/.local/bin"
+    local SCRIPT_TARGET="$BIN_DIR/optimize-images"
+
+    # Remove if exists from previous test
+    rm -f "$SCRIPT_TARGET"
+
+    run install_optimize_images_script
+    assert_success
+    assert_output --partial "Installed optimize-images to PATH"
+    assert [ -L "$SCRIPT_TARGET" ]
+    assert [ -x "$SCRIPT_TARGET" ]
+}
+
+@test "install_optimize_images_script is idempotent" {
+    source "$PROJECT_ROOT/setup.sh"
+
+    install_optimize_images_script
+    run install_optimize_images_script
+    assert_success
+    assert_output --partial "already in PATH"
+}
+
 # --- uv installation ---
 
 @test "install_uv reports already installed when present" {
@@ -207,7 +231,7 @@ teardown() {
     # Run again
     run configure_bashrc
     assert_success
-    assert_output --partial "starship already configured"
+    assert_output --partial "shell already configured"
 
     # Verify only one occurrence
     count=$(grep -c "starship init bash" "$TEST_TEMP_DIR/.bashrc" || echo 0)
@@ -226,7 +250,8 @@ EOF
 
     run configure_bashrc
     assert_success
-    assert_output --partial "starship already configured"
+    assert_output --partial "Added ~/.local/bin to PATH"
+    refute_output --partial "starship configured"
 }
 
 @test "configure_bashrc includes marker comment" {

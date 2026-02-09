@@ -82,6 +82,7 @@ install_apt_packages() {
         ca-certificates \
         build-essential \
         pngquant \
+        imagemagick \
         python3 \
         python3-dev \
         libpng-dev \
@@ -123,23 +124,49 @@ install_starship() {
 }
 
 configure_bashrc() {
-    if [ -f "$HOME/.bashrc" ] && grep -qF "starship init bash" "$HOME/.bashrc"; then
-        echo "${GREEN}starship already configured in .bashrc${RST}"
-        return 0
-    fi
+    local NEEDS_UPDATE=0
 
     if [ ! -f "$HOME/.bashrc" ]; then
         echo "${PEACH}Creating new .bashrc file${RST}"
         touch "$HOME/.bashrc"
+        NEEDS_UPDATE=1
     fi
 
-    cat >> "$HOME/.bashrc" << 'EOF'
+    # Check if PATH already includes ~/.local/bin
+    if ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc"; then
+        NEEDS_UPDATE=1
+    fi
+
+    # Check if starship is already configured
+    if ! grep -qF "starship init bash" "$HOME/.bashrc"; then
+        NEEDS_UPDATE=1
+    fi
+
+    if [ "$NEEDS_UPDATE" -eq 0 ]; then
+        echo "${GREEN}shell already configured in .bashrc${RST}"
+        return 0
+    fi
+
+    # Add PATH if not present
+    if ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc"; then
+        cat >> "$HOME/.bashrc" << 'EOF'
+
+# Add user binaries to PATH (added by odoo-writer-setup)
+export PATH="$HOME/.local/bin:$PATH"
+EOF
+        echo "${GREEN}Added ~/.local/bin to PATH in .bashrc${RST}"
+    fi
+
+    # Add starship if not present
+    if ! grep -qF "starship init bash" "$HOME/.bashrc"; then
+        cat >> "$HOME/.bashrc" << 'EOF'
 
 # Starship prompt (added by odoo-writer-setup)
 eval "$(starship init bash)"
 EOF
+        echo "${GREEN}starship configured in .bashrc${RST}"
+    fi
 
-    echo "${GREEN}starship configured in .bashrc${RST}"
     echo "${SUBTEXT}   Run: source ~/.bashrc${RST}"
 }
 
@@ -193,12 +220,29 @@ install_hook() {
     fi
 }
 
+install_optimize_images_script() {
+    local BIN_DIR="$HOME/.local/bin"
+    local SCRIPT_SOURCE="$SCRIPT_DIR/scripts/optimize-images.sh"
+    local SCRIPT_TARGET="$BIN_DIR/optimize-images"
+
+    mkdir -p "$BIN_DIR"
+
+    if [ -L "$SCRIPT_TARGET" ]; then
+        echo "${GREEN}optimize-images already in PATH${RST}"
+    elif [ -f "$SCRIPT_TARGET" ]; then
+        echo "${YELLOW}Warning: $SCRIPT_TARGET exists but is not a symlink${RST}"
+    else
+        ln -s "$SCRIPT_SOURCE" "$SCRIPT_TARGET"
+        echo "${GREEN}Installed optimize-images to PATH${RST}"
+    fi
+}
+
 verify_installation() {
     echo ""
     echo "${MAUVE}${BOLD}Verification${RST}"
     local ok=true
 
-    for tool in git make uv vale pngquant starship; do
+    for tool in git make uv vale pngquant identify optimize-images starship; do
         if command -v "$tool" &> /dev/null; then
             echo "${GREEN}  $tool found${RST}"
         else
@@ -286,6 +330,7 @@ main() {
     fi
     clone_or_update_repos
     install_hook
+    install_optimize_images_script
     verify_installation
 }
 

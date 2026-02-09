@@ -15,14 +15,85 @@ VALE_REPO="${VALE_REPO:-$HOME/Documents/odoo/odoo-vale-linter}"
 # Get staged .rst files (added, copied, or modified)
 mapfile -t STAGED_RST < <(git diff --cached --name-only --diff-filter=ACM -- '*.rst')
 
-if [ "${#STAGED_RST[@]}" -eq 0 ]; then
+# Get staged .png files (added, copied, or modified)
+mapfile -t STAGED_PNG < <(git diff --cached --name-only --diff-filter=ACM -- '*.png')
+
+if [ "${#STAGED_RST[@]}" -eq 0 ] && [ "${#STAGED_PNG[@]}" -eq 0 ]; then
     exit 0
 fi
 
-echo -e "${BOLD}Checking staged .rst files...${RESET}"
-echo ""
-
 ERRORS=0
+
+# --- Image Validation ---
+if [ "${#STAGED_PNG[@]}" -gt 0 ]; then
+    if command -v identify &> /dev/null; then
+        echo -e "${BOLD}Validating staged images...${RESET}"
+
+        VALIDATION_FAILED=0
+        FAILED_IMAGES=()
+
+        for img in "${STAGED_PNG[@]}"; do
+            if [ -f "$img" ]; then
+                # Check current width
+                WIDTH=$(identify -format '%w' "$img" 2>/dev/null)
+
+                # Validate width: must be ≤768px OR exactly 933px
+                if [ "$WIDTH" -gt 768 ] && [ "$WIDTH" -ne 933 ]; then
+                    echo -e "  ${RED}✗${RESET} $img: ${WIDTH}px wide (max 768px, or 933px for exceptions)"
+                    VALIDATION_FAILED=1
+                    FAILED_IMAGES+=("$img")
+                fi
+
+                # Check color depth (bit depth)
+                BIT_DEPTH=$(identify -format '%[bit-depth]' "$img" 2>/dev/null)
+
+                # Validate bit depth: must be ≤8
+                if [ "$BIT_DEPTH" -gt 8 ]; then
+                    echo -e "  ${RED}✗${RESET} $img: ${BIT_DEPTH}-bit color depth (must be 8-bit)"
+                    VALIDATION_FAILED=1
+                    # Add to FAILED_IMAGES if not already there
+                    ALREADY_ADDED=0
+                    for failed in "${FAILED_IMAGES[@]}"; do
+                        if [ "$failed" = "$img" ]; then
+                            ALREADY_ADDED=1
+                            break
+                        fi
+                    done
+                    if [ "$ALREADY_ADDED" -eq 0 ]; then
+                        FAILED_IMAGES+=("$img")
+                    fi
+                fi
+            fi
+        done
+
+        if [ "$VALIDATION_FAILED" -eq 1 ]; then
+            echo ""
+            echo -e "${RED}${BOLD}✗ Image validation failed${RESET}"
+            echo ""
+            echo -e "To fix, run:"
+            echo -e "  ${BOLD}optimize-images${RESET}"
+            echo ""
+            echo -e "Or optimize specific files:"
+            echo -e "  ${BOLD}optimize-images ${FAILED_IMAGES[*]}${RESET}"
+            echo ""
+            echo -e "Or skip validation:"
+            echo -e "  ${BOLD}git commit --no-verify${RESET}"
+            echo ""
+            ERRORS=1
+        else
+            echo -e "${GREEN}✓ All images validated${RESET}"
+            echo ""
+        fi
+    else
+        echo -e "${YELLOW}⚠ ImageMagick not found, skipping image validation${RESET}"
+        echo ""
+    fi
+fi
+
+if [ "${#STAGED_RST[@]}" -gt 0 ]; then
+    echo -e "${BOLD}Checking staged .rst files...${RESET}"
+    echo ""
+fi
 
 # --- Vale ---
 if command -v vale &> /dev/null; then
