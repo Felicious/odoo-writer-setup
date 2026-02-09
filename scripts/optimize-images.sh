@@ -23,23 +23,7 @@ RESET='\033[0m'
 # Backup directory for originals
 BACKUP_DIR="$HOME/.cache/odoo-docs-image-originals"
 
-# Check for required tools
-if ! command -v identify &> /dev/null; then
-    echo -e "${RED}Error: ImageMagick not found. Install with: sudo apt install imagemagick${RESET}"
-    exit 1
-fi
-
-if ! command -v mogrify &> /dev/null; then
-    echo -e "${RED}Error: ImageMagick not found. Install with: sudo apt install imagemagick${RESET}"
-    exit 1
-fi
-
-if ! command -v pngquant &> /dev/null; then
-    echo -e "${RED}Error: pngquant not found. Install with: sudo apt install pngquant${RESET}"
-    exit 1
-fi
-
-# Parse arguments
+# Parse arguments first (before checking tools)
 TARGET_WIDTH=768
 WIDTH_EXPLICIT=0  # Track if --width was explicitly provided
 AUTO_CONFIRM=0
@@ -66,6 +50,22 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Check for required tools
+if ! command -v identify &> /dev/null; then
+    echo -e "${RED}Error: ImageMagick not found. Install with: sudo apt install imagemagick${RESET}"
+    exit 1
+fi
+
+if ! command -v mogrify &> /dev/null; then
+    echo -e "${RED}Error: ImageMagick not found. Install with: sudo apt install imagemagick${RESET}"
+    exit 1
+fi
+
+if ! command -v pngquant &> /dev/null; then
+    echo -e "${RED}Error: pngquant not found. Install with: sudo apt install pngquant${RESET}"
+    exit 1
+fi
 
 # Get list of files to process
 if [ "${#POSITIONAL_ARGS[@]}" -eq 0 ]; then

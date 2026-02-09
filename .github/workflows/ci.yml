@@ -21,7 +21,9 @@ jobs:
             git \
             curl \
             ca-certificates \
-            shellcheck
+            shellcheck \
+            imagemagick \
+            pngquant
 
       - name: Checkout
         uses: actions/checkout@v6
