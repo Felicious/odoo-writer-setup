@@ -230,3 +230,28 @@ EOF
     assert_success
     assert_output --partial "ImageMagick not found"
 }
+
+@test "commits PNG-only without hanging on sphinx linter" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+    if ! command -v uv &> /dev/null; then
+        skip "uv not installed"
+    fi
+
+    # Create tests/main.py so sphinx linter would be invoked
+    mkdir -p "$REPO_DIR/tests"
+    echo "# sphinx linter" > "$REPO_DIR/tests/main.py"
+    git -C "$REPO_DIR" add tests/main.py
+    git -C "$REPO_DIR" commit --quiet -m "add main.py"
+
+    # Create and stage only a PNG file
+    convert -size 500x300 xc:blue -depth 8 -type Palette "$REPO_DIR/test.png"
+    git -C "$REPO_DIR" add test.png
+
+    # Hook should complete quickly without hanging
+    run timeout 5 git -C "$REPO_DIR" hook run pre-commit
+    assert_success
+    assert_output --partial "All images validated"
+    refute_output --partial "Running Sphinx linter"
+}

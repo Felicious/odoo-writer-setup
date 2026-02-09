@@ -132,28 +132,30 @@ else
 fi
 
 # --- Sphinx linter ---
-REPO_ROOT=$(git rev-parse --show-toplevel)
-SPHINX_LINTER="$REPO_ROOT/tests/main.py"
-MAX_LINE_LENGTH="${SPHINX_MAX_LINE_LENGTH:-100}"
+if [ "${#STAGED_RST[@]}" -gt 0 ]; then
+    REPO_ROOT=$(git rev-parse --show-toplevel)
+    SPHINX_LINTER="$REPO_ROOT/tests/main.py"
+    MAX_LINE_LENGTH="${SPHINX_MAX_LINE_LENGTH:-100}"
 
-if [ -f "$SPHINX_LINTER" ]; then
-    if command -v uv &> /dev/null; then
-        echo -e "${BOLD}Running Sphinx linter...${RESET}"
-        SPHINX_OUTPUT=$(REVIEW=1 uv run "$SPHINX_LINTER" --max-line-length="$MAX_LINE_LENGTH" "${STAGED_RST[@]}" 2>&1)
-        SPHINX_EXIT=$?
+    if [ -f "$SPHINX_LINTER" ]; then
+        if command -v uv &> /dev/null; then
+            echo -e "${BOLD}Running Sphinx linter...${RESET}"
+            SPHINX_OUTPUT=$(REVIEW=1 uv run "$SPHINX_LINTER" --max-line-length="$MAX_LINE_LENGTH" "${STAGED_RST[@]}" 2>&1)
+            SPHINX_EXIT=$?
 
-        if [ "$SPHINX_EXIT" -ne 0 ]; then
-            echo "$SPHINX_OUTPUT"
-            echo -e "${RED}✗ Sphinx linter found issues${RESET}"
-            echo ""
-            ERRORS=1
+            if [ "$SPHINX_EXIT" -ne 0 ]; then
+                echo "$SPHINX_OUTPUT"
+                echo -e "${RED}✗ Sphinx linter found issues${RESET}"
+                echo ""
+                ERRORS=1
+            else
+                echo -e "${GREEN}✓ Sphinx linter passed${RESET}"
+                echo ""
+            fi
         else
-            echo -e "${GREEN}✓ Sphinx linter passed${RESET}"
+            echo -e "${YELLOW}⚠ uv not found, skipping Sphinx linter${RESET}"
             echo ""
         fi
-    else
-        echo -e "${YELLOW}⚠ uv not found, skipping Sphinx linter${RESET}"
-        echo ""
     fi
 fi
 
