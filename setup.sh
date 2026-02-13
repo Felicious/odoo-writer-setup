@@ -1,6 +1,12 @@
 #!/bin/bash
-set -e
-trap 'exit 130' INT
+set -euo pipefail
+cleanup() {
+# Only remove if the directory is empty or contains partial git data
+if [ -d "$DOCS_REPO" ] && [ ! -d "$DOCS_REPO/.git" ]; then
+rm -rf "$DOCS_REPO"
+fi
+}
+trap cleanup EXIT
 
 # Catppuccin Mocha colors (truecolor)
 GREEN=$'\033[38;2;166;227;161m'
@@ -44,8 +50,9 @@ check_system() {
 }
 
 check_shell() {
-    if [ -z "$SHELL" ] || [[ ! "$SHELL" =~ bash$ ]]; then
-        echo "${PEACH}Note: Your login shell is not bash${RST}"
+    # If BASH_VERSION is empty, it means the script isn't actually running in Bash
+    if [ -z "$BASH_VERSION" ]; then
+        echo "${PEACH}Note: This script is not running in bash${RST}"
         echo "${SUBTEXT}   Starship will be configured for bash anyway${RST}"
         echo "${SUBTEXT}   If you use zsh/fish, configure manually: https://starship.rs/guide/#step-2-set-up-your-shell-to-use-starship${RST}"
     fi
@@ -125,84 +132,62 @@ install_starship() {
 
 configure_bashrc() {
     local NEEDS_UPDATE=0
-
+    # [cite_start]Create .bashrc if missing [cite: 10]
     if [ ! -f "$HOME/.bashrc" ]; then
         echo "${PEACH}Creating new .bashrc file${RST}"
         touch "$HOME/.bashrc"
         NEEDS_UPDATE=1
     fi
 
-    # Check if PATH already includes ~/.local/bin
-    # shellcheck disable=SC2016  # We want the literal string '$HOME/.local/bin'
-    if ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc"; then
-        NEEDS_UPDATE=1
-    fi
-
-    # Check if starship is already configured
-    if ! grep -qF "starship init bash" "$HOME/.bashrc"; then
-        NEEDS_UPDATE=1
-    fi
+    # [cite_start]Flag updates for PATH, Starship, and Alias [cite: 11]
+    ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc" && NEEDS_UPDATE=1
+    ! grep -qF "starship init bash" "$HOME/.bashrc" && NEEDS_UPDATE=1
+    ! grep -qF "alias docs-sync=" "$HOME/.bashrc" && NEEDS_UPDATE=1
 
     if [ "$NEEDS_UPDATE" -eq 0 ]; then
         echo "${GREEN}shell already configured in .bashrc${RST}"
         return 0
     fi
 
-    # Add PATH if not present
-    # shellcheck disable=SC2016  # We want the literal string '$HOME/.local/bin'
+    # [cite_start]Add PATH [cite: 11]
     if ! grep -qF '$HOME/.local/bin' "$HOME/.bashrc"; then
         cat >> "$HOME/.bashrc" << 'EOF'
-
-# Add user binaries to PATH (added by odoo-writer-setup)
 export PATH="$HOME/.local/bin:$PATH"
 EOF
-        echo "${GREEN}Added ~/.local/bin to PATH in .bashrc${RST}"
+        echo "${GREEN}Added ~/.local/bin to PATH${RST}"
     fi
 
-    # Add starship if not present
+    # [cite_start]Add Starship [cite: 11]
     if ! grep -qF "starship init bash" "$HOME/.bashrc"; then
-        cat >> "$HOME/.bashrc" << 'EOF'
-
-# Starship prompt (added by odoo-writer-setup)
-eval "$(starship init bash)"
-EOF
+        echo 'eval "$(starship init bash)"' >> "$HOME/.bashrc"
         echo "${GREEN}starship configured in .bashrc${RST}"
+    fi
+
+    # Add docs-sync Alias
+    if ! grep -qF "alias docs-sync=" "$HOME/.bashrc"; then
+        echo "alias docs-sync='git -C \"$DOCS_REPO\" checkout main && git -C \"$DOCS_REPO\" pull && git -C \"$DOCS_REPO\" checkout -'" >> "$HOME/.bashrc"
+        echo "${GREEN}Added docs-sync alias to .bashrc${RST}"
     fi
 
     echo "${SUBTEXT}   Run: source ~/.bashrc${RST}"
 }
 
-create_directories() {
-    mkdir -p "$ODOO_DIR"
-    echo "${GREEN}Directory structure ready ($ODOO_DIR)${RST}"
-}
-
 clone_or_update_repos() {
-    # Documentation repo
     if [ -d "$DOCS_REPO/.git" ]; then
         echo "${GREEN}Found documentation repo${RST}"
+        git -C "$DOCS_REPO" config pull.rebase true 
         git -C "$DOCS_REPO" pull --quiet 2>/dev/null || true
     else
         echo "Cloning documentation repo..."
         mkdir -p "$(dirname "$DOCS_REPO")"
         if ! git clone git@github.com:odoo/documentation.git "$DOCS_REPO"; then
             echo "${RED}Failed to clone documentation repo via SSH.${RST}"
-            echo "${SUBTEXT}   Configure your GitHub SSH key and re-run setup.${RST}"
-            echo "${SUBTEXT}   See README: SSH setup instructions.${RST}"
             return 1
         fi
-        echo "${GREEN}Cloned documentation repo to $DOCS_REPO${RST}"
-    fi
-
-    # Vale linter repo
-    if [ -d "$VALE_REPO/.git" ]; then
-        echo "${GREEN}Found odoo-vale-linter${RST}"
-        git -C "$VALE_REPO" pull --quiet 2>/dev/null || true
-    else
-        echo "Cloning odoo-vale-linter..."
-        mkdir -p "$(dirname "$VALE_REPO")"
-        git clone --quiet https://github.com/felicious/odoo-vale-linter.git "$VALE_REPO"
-        echo "${GREEN}Cloned odoo-vale-linter to $VALE_REPO${RST}"
+        # Configure linear history
+        git -C "$DOCS_REPO" config pull.rebase true 
+        git -C "$DOCS_REPO" config branch.autosetuprebase always 
+        echo "${GREEN}Cloned documentation repo and configured for rebase.${RST}"
     fi
 }
 
