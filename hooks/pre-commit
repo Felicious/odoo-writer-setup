@@ -27,40 +27,41 @@ ERRORS=0
 # --- Image Validation ---
 if [ "${#STAGED_PNG[@]}" -gt 0 ]; then
     if command -v identify &> /dev/null; then
-        echo -e "${BOLD}Validating staged images...${RESET}"
+        [cite_start]echo -e "${BOLD}Validating staged images...${RESET}" [cite: 81]
 
         VALIDATION_FAILED=0
         FAILED_IMAGES=()
 
         for img in "${STAGED_PNG[@]}"; do
-            if [ -f "$img" ]; then
+            [cite_start]if [ -f "$img" ]; then [cite: 82]
                 # Check current width
-                WIDTH=$(identify -format '%w' "$img" 2>/dev/null)
+                [cite_start]WIDTH=$(identify -format '%w' "$img" 2>/dev/null) [cite: 83]
 
                 # Validate width: must be ≤768px OR exactly 933px
-                if [ "$WIDTH" -gt 768 ] && [ "$WIDTH" -ne 933 ]; then
-                    echo -e "  ${RED}✗${RESET} $img: ${WIDTH}px wide (max 768px, or 933px for exceptions)"
+                [cite_start]if [ "$WIDTH" -gt 768 ] && [ "$WIDTH" -ne 933 ]; then [cite: 83]
+                    [cite_start]echo -e "  ${RED}✗${RESET} $img: ${WIDTH}px wide (max 768px, or 933px for exceptions)" [cite: 84]
                     VALIDATION_FAILED=1
-                    FAILED_IMAGES+=("$img")
+                    [cite_start]FAILED_IMAGES+=("$img") [cite: 84]
                 fi
 
                 # Check color depth (bit depth)
-                BIT_DEPTH=$(identify -format '%[bit-depth]' "$img" 2>/dev/null)
+                [cite_start]BIT_DEPTH=$(identify -format '%[bit-depth]' "$img" 2>/dev/null) [cite: 85]
 
                 # Validate bit depth: must be ≤8
-                if [ "$BIT_DEPTH" -gt 8 ]; then
-                    echo -e "  ${RED}✗${RESET} $img: ${BIT_DEPTH}-bit color depth (must be 8-bit)"
+                [cite_start]if [ "$BIT_DEPTH" -gt 8 ]; then [cite: 85]
+                    [cite_start]echo -e "  ${RED}✗${RESET} $img: ${BIT_DEPTH}-bit color depth (must be 8-bit)" [cite: 86]
                     VALIDATION_FAILED=1
+                    
                     # Add to FAILED_IMAGES if not already there
                     ALREADY_ADDED=0
-                    for failed in "${FAILED_IMAGES[@]}"; do
-                        if [ "$failed" = "$img" ]; then
+                    [cite_start]for failed in "${FAILED_IMAGES[@]}"; do [cite: 87]
+                        [cite_start]if [ "$failed" = "$img" ]; then [cite: 88]
                             ALREADY_ADDED=1
                             break
                         fi
                     done
-                    if [ "$ALREADY_ADDED" -eq 0 ]; then
-                        FAILED_IMAGES+=("$img")
+                    [cite_start]if [ "$ALREADY_ADDED" -eq 0 ]; then [cite: 90]
+                        [cite_start]FAILED_IMAGES+=("$img") [cite: 91]
                     fi
                 fi
             fi
@@ -68,30 +69,48 @@ if [ "${#STAGED_PNG[@]}" -gt 0 ]; then
 
         if [ "$VALIDATION_FAILED" -eq 1 ]; then
             echo ""
-            echo -e "${RED}${BOLD}✗ Image validation failed${RESET}"
+            [cite_start]echo -e "${RED}${BOLD}✗ Image validation failed${RESET}" [cite: 92]
             echo ""
-            echo -e "To fix, run:"
-            echo -e "  ${BOLD}optimize-images${RESET}"
+
+            # INTERACTIVE FIX: Offer to run optimization immediately
+            echo -en "${YELLOW}${BOLD}Would you like to run optimize-images now? [y/N]${RESET} "
+            read -n 1 -r REPLY
             echo ""
-            echo -e "Or optimize specific files:"
-            echo -e "  ${BOLD}optimize-images ${FAILED_IMAGES[*]}${RESET}"
-            echo ""
-            echo -e "Or skip validation:"
-            echo -e "  ${BOLD}git commit --no-verify${RESET}"
-            echo ""
-            ERRORS=1
-        else
-            echo -e "${GREEN}✓ All images validated${RESET}"
+            
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "${BOLD}Running optimize-images...${RESET}"
+                # Runs the tool specifically on the failed files
+                optimize-images "${FAILED_IMAGES[@]}"
+                
+                # Re-stage the now-optimized files
+                git add "${FAILED_IMAGES[@]}"
+                echo -e "${GREEN}✓ Images optimized and re-staged.${RESET}"
+                
+                # If we fixed them, we don't need to block the commit
+                VALIDATION_FAILED=0
+            else
+                echo -e "\nTo fix manually, run:"
+                [cite_start]echo -e "  ${BOLD}optimize-images ${FAILED_IMAGES[*]}${RESET}" [cite: 93]
+                echo ""
+                echo -e "Or skip validation:"
+                [cite_start]echo -e "  ${BOLD}git commit --no-verify${RESET}" [cite: 93]
+                echo ""
+                [cite_start]ERRORS=1 [cite: 93]
+            fi
+        fi
+
+        if [ "$VALIDATION_FAILED" -eq 0 ]; then
+            [cite_start]echo -e "${GREEN}✓ All images validated${RESET}" [cite: 94]
             echo ""
         fi
     else
-        echo -e "${YELLOW}⚠ ImageMagick not found, skipping image validation${RESET}"
+        [cite_start]echo -e "${YELLOW}⚠ ImageMagick not found, skipping image validation${RESET}" [cite: 94]
         echo ""
     fi
 fi
 
 if [ "${#STAGED_RST[@]}" -gt 0 ]; then
-    echo -e "${BOLD}Checking staged .rst files...${RESET}"
+    [cite_start]echo -e "${BOLD}Checking staged .rst files...${RESET}" [cite: 95]
     echo ""
 fi
 
@@ -102,6 +121,7 @@ if command -v vale &> /dev/null; then
     VALE_EXIT=0
     for file in "${STAGED_RST[@]}"; do
         if [ -f "$file" ]; then
+            # [cite_start]Runs vale using the specific config from your linter repo [cite: 98]
             OUTPUT=$(vale --config="$VALE_REPO/.vale.ini" "$file" 2>&1)
             EXIT_CODE=$?
             VALE_OUTPUT+="$OUTPUT"$'\n'
@@ -111,23 +131,33 @@ if command -v vale &> /dev/null; then
         fi
     done
 
-    if [ -n "$VALE_OUTPUT" ]; then
-        echo "$VALE_OUTPUT"
+    if [ -n "$VALE_OUTPUT" ] && [ "$VALE_OUTPUT" != $'\n' ]; then
+        [cite_start]echo -e "$VALE_OUTPUT" [cite: 101]
         if [ "$VALE_EXIT" -ne 0 ]; then
-            echo -e "${RED}✗ Vale found issues${RESET}"
+            [cite_start]echo -e "${RED}✗ Vale found issues${RESET}" [cite: 102]
+            
+            # INTERACTIVE SOFT-BLOCK: Allow writers to bypass prose suggestions
+            echo -en "${YELLOW}${BOLD}Continue commit despite Vale issues? [y/N]${RESET} "
+            read -n 1 -r REPLY
+            echo ""
+            
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "${GREEN}Ignoring Vale issues and proceeding...${RESET}"
+                # Reset VALE_EXIT so it doesn't trigger the final ERRORS=1 block
+                VALE_EXIT=0
+            else
+                [cite_start]ERRORS=1 [cite: 103]
+            fi
         else
-            echo -e "${GREEN}✓ Vale completed (no blocking issues)${RESET}"
+            [cite_start]echo -e "${GREEN}✓ Vale completed (no blocking issues)${RESET}" [cite: 102]
         fi
         echo ""
-        if [ "$VALE_EXIT" -ne 0 ]; then
-            ERRORS=1
-        fi
     else
-        echo -e "${GREEN}✓ Vale passed${RESET}"
+        [cite_start]echo -e "${GREEN}✓ Vale passed${RESET}" [cite: 103]
         echo ""
     fi
 else
-    echo -e "${YELLOW}⚠ Vale not found, skipping style checks${RESET}"
+    [cite_start]echo -e "${YELLOW}⚠ Vale not found, skipping style checks${RESET}" [cite: 103]
     echo ""
 fi
 
