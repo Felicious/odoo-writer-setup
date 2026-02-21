@@ -43,3 +43,39 @@ jobs:
       - name: Run BATS tests
         run: |
           ./test/bats/bin/bats test/
+
+  test-documentation-build:
+    name: Test Documentation Build
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+    env:
+      SKIP_GITHUB_SSH_CHECK: "1"
+      DOCS_REPO: /tmp/odoo-documentation
+      VALE_REPO: /tmp/odoo-vale-linter
+      ODOO_DIR: /tmp/odoo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run setup script
+        run: |
+          ./setup.sh
+
+      - name: Clone documentation repo
+        run: |
+          git clone --depth 1 https://github.com/odoo/documentation.git "$DOCS_REPO"
+
+      - name: Create venv and install dependencies
+        run: |
+          cd "$DOCS_REPO"
+          ~/.local/bin/uv venv
+          source .venv/bin/activate
+          ~/.local/bin/uv pip install -r requirements.txt -r tests/requirements.txt
+
+      - name: Build documentation
+        run: |
+          cd "$DOCS_REPO"
+          source .venv/bin/activate
+          make html

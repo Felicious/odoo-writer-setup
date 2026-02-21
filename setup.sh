@@ -106,6 +106,19 @@ install_uv() {
     echo "${GREEN}uv installed${RST}"
 }
 
+install_python311() {
+    echo "${MAUVE}${BOLD}Setting up Python 3.11...${RST}"
+
+    # Install Python 3.11 (skips if already installed)
+    uv python install 3.11
+
+    # Set as global default to prevent Python 3.12 pkg_resources issues
+    uv python pin --global 3.11
+
+    echo "${GREEN}Python 3.11 configured as default${RST}"
+    echo "${SUBTEXT}   This prevents Python 3.12 pkg_resources deprecation issues${RST}"
+}
+
 install_vale() {
     echo "Installing vale via uv..."
     uv tool install --with-executables-from docutils vale
@@ -253,6 +266,20 @@ verify_installation() {
         fi
     done
 
+    if uv python list 2>/dev/null | grep -q "cpython-3.11.*installed"; then
+        echo "${GREEN}  Python 3.11 installed${RST}"
+    else
+        echo "${PEACH}  Python 3.11 not installed${RST}"
+        ok=false
+    fi
+
+    if [ -f "$HOME/.python-version" ] && grep -q "3.11" "$HOME/.python-version"; then
+        echo "${GREEN}  Python 3.11 set as global default${RST}"
+    else
+        echo "${PEACH}  Python 3.11 not set as global default${RST}"
+        ok=false
+    fi
+
     if [ -d "$DOCS_REPO/.git" ]; then
         echo "${GREEN}  documentation repo present${RST}"
     else
@@ -321,6 +348,7 @@ main() {
     fi
 
     install_uv
+    install_python311
     install_vale
     install_starship
     configure_bashrc

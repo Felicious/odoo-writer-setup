@@ -37,6 +37,29 @@ This installs Vale linter, the `optimize-images` tool, clones documentation repo
 > [!TIP]
 > After setup completes, run `source ~/.bashrc` or open a new terminal to activate changes.
 
+## Working with the Documentation Repo
+
+After setup completes, you can build the documentation using these steps:
+
+```bash
+cd ~/Documents/odoo/documentation
+
+# Create a virtual environment using uv (uses Python 3.11 automatically)
+uv venv
+
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+uv pip install -r requirements.txt -r tests/requirements.txt
+
+# Build the documentation
+make html
+```
+
+> [!NOTE]
+> The setup configures Python 3.11 as the global default to prevent Python 3.12 `pkg_resources` deprecation issues when building documentation with Sphinx.
+
 ## What It Does
 
 The setup script:
