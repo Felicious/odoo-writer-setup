@@ -140,6 +140,57 @@ teardown() {
     [ "$BIT_DEPTH" -eq 8 ]
 }
 
+@test "optimize-images.sh quantizes TrueColor 8-bit-per-channel screenshots to palette" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+    if ! command -v pngquant &> /dev/null; then
+        skip "pngquant not installed"
+    fi
+
+    cd "$REPO_DIR"
+    # ImageMagick's %[bit-depth] reports bits-per-channel, so a busy
+    # TrueColor screenshot like this already reports depth=8, same as a
+    # palette PNG. The optimize-decision must not rely on that alone.
+    convert -size 933x500 plasma:fractal -depth 8 truecolor.png
+    TYPE_BEFORE=$(identify -format '%[type]' truecolor.png)
+    [ "$TYPE_BEFORE" = "TrueColor" ]
+
+    run "$PROJECT_ROOT/scripts/optimize-images.sh" -y --width 933
+    assert_success
+    assert_output --partial "Optimizing truecolor.png"
+
+    TYPE_AFTER=$(identify -format '%[type]' truecolor.png)
+    [[ "$TYPE_AFTER" == *Palette* ]]
+}
+
+@test "optimize-images.sh recompresses an already-palette PNG that is still oversized" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+    if ! command -v pngquant &> /dev/null; then
+        skip "pngquant not installed"
+    fi
+
+    cd "$REPO_DIR"
+    # Build a palette PNG that is still well over the 505000-byte docs limit,
+    # mirroring images that pass the color-depth check but still fail the
+    # `make review` size check.
+    convert -size 933x2000 plasma:fractal -depth 8 oversized.png
+    pngquant --force --quality 0-100 --ext .png --skip-if-larger oversized.png
+    TYPE_BEFORE=$(identify -format '%[type]' oversized.png)
+    [[ "$TYPE_BEFORE" == *Palette* ]]
+    SIZE_BEFORE=$(stat -c%s oversized.png)
+    [ "$SIZE_BEFORE" -gt 505000 ]
+
+    run "$PROJECT_ROOT/scripts/optimize-images.sh" -y --width 933
+    assert_success
+    assert_output --partial "Optimizing oversized.png"
+
+    SIZE_AFTER=$(stat -c%s oversized.png)
+    [ "$SIZE_AFTER" -lt "$SIZE_BEFORE" ]
+}
+
 @test "optimize-images.sh accepts specific file arguments" {
     if ! command -v convert &> /dev/null; then
         skip "ImageMagick not installed"
