@@ -23,6 +23,63 @@ RESET='\033[0m'
 # Backup directory for originals
 BACKUP_DIR="$HOME/.cache/odoo-docs-image-originals"
 
+# Max PNG size in bytes; must match MAX_IMAGE_SIZES['.png'] in
+# odoo/documentation's tests/checkers/resource_files.py (the `make review` check).
+MAX_PNG_SIZE=505000
+
+# pngquant quality/color fallback tiers, tried in order until the image
+# becomes a palette PNG at or under MAX_PNG_SIZE. A single --quality 85-100
+# pass is not enough: pngquant aborts without writing output when it can't
+# hit the minimum quality (common on busy screenshots), which used to leave
+# the image completely uncompressed.
+QUALITY_TIERS=(85-100 65-100 0-100)
+COLOR_TIERS=(128 64 32 16)
+
+# Return success (0) if the PNG is already an indexed/palette image, i.e.
+# what `identify`'s `%[bit-depth]` cannot tell us: it reports bits per
+# *channel*, so a 24-bit TrueColor screenshot reports 8 just like an
+# already-quantized palette PNG. Checking the ImageMagick "type" instead
+# mirrors the docs repo's own check, which looks at the Pillow image mode.
+png_is_palette() {
+    local type
+    type=$(identify -format '%[type]' "$1" 2>/dev/null)
+    [[ "$type" == *Palette* ]]
+}
+
+# Return success (0) if the PNG still needs work: not a palette image yet,
+# or already palette but still over the docs repo's size limit.
+png_needs_optimize() {
+    local img="$1" size
+    size=$(stat -c%s "$img" 2>/dev/null || echo 0)
+    if ! png_is_palette "$img"; then
+        return 0
+    fi
+    [ "$size" -gt "$MAX_PNG_SIZE" ]
+}
+
+# Quantize $1 down to a palette PNG under MAX_PNG_SIZE, escalating from
+# best quality/most colors to more aggressive settings only as needed.
+# Returns 0 on success, 1 if it's palette but still oversized, 2 if it
+# could not be converted to palette at all.
+quantize_png() {
+    local img="$1" tier
+
+    for tier in "${QUALITY_TIERS[@]}"; do
+        pngquant --force --ext .png --skip-if-larger --quality "$tier" "$img" 2>/dev/null || true
+        png_needs_optimize "$img" || return 0
+    done
+
+    for tier in "${COLOR_TIERS[@]}"; do
+        pngquant --force --ext .png --skip-if-larger "$tier" "$img" 2>/dev/null || true
+        png_needs_optimize "$img" || return 0
+    done
+
+    if png_is_palette "$img"; then
+        return 1
+    fi
+    return 2
+}
+
 # Parse arguments first (before checking tools)
 TARGET_WIDTH=768
 WIDTH_EXPLICIT=0  # Track if --width was explicitly provided
@@ -110,7 +167,6 @@ for img in "${FILES[@]}"; do
     fi
 
     WIDTH=$(identify -format '%w' "$img" 2>/dev/null)
-    BIT_DEPTH=$(identify -format '%[bit-depth]' "$img" 2>/dev/null)
 
     if [ -z "$WIDTH" ]; then
         continue
@@ -133,12 +189,17 @@ for img in "${FILES[@]}"; do
     fi
 
     NEEDS_OPTIMIZE=0
-    if [ "$BIT_DEPTH" -gt 8 ]; then
+    if png_needs_optimize "$img"; then
         NEEDS_OPTIMIZE=1
         if [ -n "$CHANGES" ]; then
             CHANGES="$CHANGES, "
         fi
-        CHANGES="${CHANGES}optimize ${BIT_DEPTH}-bit→8-bit"
+        if png_is_palette "$img"; then
+            SIZE_KB=$(( $(stat -c%s "$img") / 1024 ))
+            CHANGES="${CHANGES}compress (${SIZE_KB}KB > $(( MAX_PNG_SIZE / 1024 ))KB limit)"
+        else
+            CHANGES="${CHANGES}quantize to palette (TrueColor→8-bit)"
+        fi
         STATUS=""  # Clear status if we need changes
     fi
 
@@ -148,7 +209,7 @@ for img in "${FILES[@]}"; do
         PLANNED_CHANGES+=("$img")
     elif [ -n "$STATUS" ]; then
         echo -e "  ${GREEN}✓${RESET} $img: $STATUS"
-    elif [ "$WIDTH" -eq "$TARGET_WIDTH" ] && [ "$BIT_DEPTH" -le 8 ]; then
+    elif [ "$WIDTH" -eq "$TARGET_WIDTH" ]; then
         echo -e "  ${GREEN}✓${RESET} $img: already optimized"
     fi
 done
@@ -205,11 +266,10 @@ for img in "${PLANNED_CHANGES[@]}"; do
         fi
     fi
 
-    # Check color depth (bit depth)
-    BIT_DEPTH=$(identify -format '%[bit-depth]' "$img" 2>/dev/null)
-
-    # Check if optimization needed
-    if [ "$BIT_DEPTH" -gt 8 ]; then
+    # Check if optimization needed (not palette, or palette but oversized)
+    WILL_OPTIMIZE=0
+    if png_needs_optimize "$img"; then
+        WILL_OPTIMIZE=1
         NEEDS_BACKUP=1
     fi
 
@@ -231,12 +291,29 @@ for img in "${PLANNED_CHANGES[@]}"; do
         echo -e "  ${GREEN}✓${RESET} Resizing $img (${WIDTH}px → ${TARGET_WIDTH}px)"
         mogrify -resize "${TARGET_WIDTH}x" "$img"
         MODIFIED_THIS_IMAGE=1
+        # Resizing can shrink the file enough on its own; re-check before quantizing.
+        if png_needs_optimize "$img"; then
+            WILL_OPTIMIZE=1
+        else
+            WILL_OPTIMIZE=0
+        fi
     fi
 
-    # Optimize if not 8-bit
-    if [ "$BIT_DEPTH" -gt 8 ]; then
-        echo -e "  ${GREEN}✓${RESET} Optimizing $img (${BIT_DEPTH}-bit → 8-bit)"
-        pngquant --force --ext .png --quality 85-100 --skip-if-larger "$img" 2>/dev/null || true
+    # Quantize to palette if not already, or still oversized
+    if [ "$WILL_OPTIMIZE" -eq 1 ]; then
+        echo -e "  ${GREEN}✓${RESET} Optimizing $img (compressing to palette PNG)"
+        if quantize_png "$img"; then
+            QUANTIZE_STATUS=0
+        else
+            QUANTIZE_STATUS=$?
+        fi
+        FINAL_KB=$(( $(stat -c%s "$img") / 1024 ))
+        if [ "$QUANTIZE_STATUS" -eq 2 ]; then
+            echo -e "  ${RED}✗${RESET} $img could not be converted to a palette PNG (pngquant failed)"
+        elif [ "$QUANTIZE_STATUS" -eq 1 ]; then
+            echo -e "  ${YELLOW}⚠${RESET} $img is still ${FINAL_KB}KB after best-effort compression" \
+                "(limit: $(( MAX_PNG_SIZE / 1024 ))KB) — consider cropping or splitting the image"
+        fi
         MODIFIED_THIS_IMAGE=1
     fi
 
