@@ -80,7 +80,7 @@ The `optimize-images` command helps you prepare PNG images for documentation. It
 optimize-images
 
 # Resize specific images to 933px (for wider screenshots)
-optimize-images --width 933 screenshot.png
+optimize-images --width 933 repo_path/to/screenshot.png
 
 # Skip confirmation prompt (for scripts)
 optimize-images -y
@@ -110,7 +110,7 @@ git commit -m "Add images"
 **Mixed widths (some images need 933px):**
 ```bash
 # First, resize specific images to 933px
-optimize-images --width 933 wide-screenshot.png
+optimize-images --width 933 repo_path/to/wide-screenshot.png
 
 # Then optimize everything else
 optimize-images          # Preserves 933px, resizes others to 768px
