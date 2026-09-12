@@ -12,6 +12,10 @@ RESET='\033[0m'
 
 VALE_REPO="${VALE_REPO:-$HOME/Documents/odoo/odoo-vale-linter}"
 
+# Must match MAX_IMAGE_SIZES['.png'] in odoo/documentation's
+# tests/checkers/resource_files.py (the `make review` check).
+MAX_PNG_SIZE=505000
+
 # Get staged .rst files (added, copied, or modified)
 mapfile -t STAGED_RST < <(git diff --cached --name-only --diff-filter=ACM -- '*.rst')
 
@@ -25,6 +29,17 @@ fi
 ERRORS=0
 
 # --- Image Validation ---
+
+# Record $1 as failing validation, without adding it to FAILED_IMAGES twice.
+mark_image_failed() {
+    local img="$1" failed
+    VALIDATION_FAILED=1
+    for failed in "${FAILED_IMAGES[@]}"; do
+        [ "$failed" = "$img" ] && return
+    done
+    FAILED_IMAGES+=("$img")
+}
+
 if [ "${#STAGED_PNG[@]}" -gt 0 ]; then
     if command -v identify &> /dev/null; then
         echo -e "${BOLD}Validating staged images...${RESET}"
@@ -40,28 +55,26 @@ if [ "${#STAGED_PNG[@]}" -gt 0 ]; then
                 # Validate width: must be ≤768px OR exactly 933px
                 if [ "$WIDTH" -gt 768 ] && [ "$WIDTH" -ne 933 ]; then
                     echo -e "  ${RED}✗${RESET} $img: ${WIDTH}px wide (max 768px, or 933px for exceptions)"
-                    VALIDATION_FAILED=1
-                    FAILED_IMAGES+=("$img")
+                    mark_image_failed "$img"
                 fi
 
-                # Check color depth (bit depth)
-                BIT_DEPTH=$(identify -format '%[bit-depth]' "$img" 2>/dev/null)
+                # Check color mode. Note: ImageMagick's %[bit-depth] reports
+                # bits per *channel*, so a 24-bit TrueColor screenshot also
+                # reports 8, same as a palette PNG — it cannot distinguish
+                # them. Use %[type] instead to check for an actual palette.
+                TYPE=$(identify -format '%[type]' "$img" 2>/dev/null)
 
-                # Validate bit depth: must be ≤8
-                if [ "$BIT_DEPTH" -gt 8 ]; then
-                    echo -e "  ${RED}✗${RESET} $img: ${BIT_DEPTH}-bit color depth (must be 8-bit)"
-                    VALIDATION_FAILED=1
-                    # Add to FAILED_IMAGES if not already there
-                    ALREADY_ADDED=0
-                    for failed in "${FAILED_IMAGES[@]}"; do
-                        if [ "$failed" = "$img" ]; then
-                            ALREADY_ADDED=1
-                            break
-                        fi
-                    done
-                    if [ "$ALREADY_ADDED" -eq 0 ]; then
-                        FAILED_IMAGES+=("$img")
-                    fi
+                # Validate color depth: must be a palette (indexed) PNG
+                if [[ "$TYPE" != *Palette* ]]; then
+                    echo -e "  ${RED}✗${RESET} $img: $TYPE color mode (must be 8-bit palette)"
+                    mark_image_failed "$img"
+                fi
+
+                # Validate file size against the docs repo's own limit
+                SIZE=$(stat -c%s "$img" 2>/dev/null || echo 0)
+                if [ "$SIZE" -gt "$MAX_PNG_SIZE" ]; then
+                    echo -e "  ${RED}✗${RESET} $img: $(( SIZE / 1024 ))KB (max $(( MAX_PNG_SIZE / 1024 ))KB)"
+                    mark_image_failed "$img"
                 fi
             fi
         done

@@ -171,7 +171,7 @@ EOF
     assert_output --partial "optimize-images"
 }
 
-@test "validates PNG bit depth and blocks commit" {
+@test "validates PNG color mode and blocks commit" {
     if ! command -v convert &> /dev/null; then
         skip "ImageMagick not installed"
     fi
@@ -184,8 +184,51 @@ EOF
     assert_failure
     assert_output --partial "Image validation failed"
     assert_output --partial "rgb.png:"
-    assert_output --partial "bit color depth"
+    assert_output --partial "color mode"
     assert_output --partial "optimize-images"
+}
+
+@test "blocks TrueColor 8-bit-per-channel screenshots (not caught by bit-depth alone)" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+
+    # identify's %[bit-depth] reports bits-per-channel: a busy TrueColor
+    # screenshot like this reports depth=8, same as an already-optimized
+    # palette PNG. Validation must key off the actual color mode instead.
+    convert -size 500x300 plasma:fractal -depth 8 "$REPO_DIR/truecolor.png"
+    TYPE=$(identify -format '%[type]' "$REPO_DIR/truecolor.png")
+    [ "$TYPE" = "TrueColor" ]
+    git -C "$REPO_DIR" add truecolor.png
+
+    run git -C "$REPO_DIR" hook run pre-commit
+    assert_failure
+    assert_output --partial "Image validation failed"
+    assert_output --partial "truecolor.png:"
+    assert_output --partial "color mode"
+}
+
+@test "blocks palette PNGs that exceed the docs size limit" {
+    if ! command -v convert &> /dev/null; then
+        skip "ImageMagick not installed"
+    fi
+    if ! command -v pngquant &> /dev/null; then
+        skip "pngquant not installed"
+    fi
+
+    # Already palette/8-bit, but still over the 505000-byte docs limit —
+    # the color-mode check alone must not be treated as "already optimized".
+    convert -size 933x2000 plasma:fractal -depth 8 "$REPO_DIR/oversized.png"
+    pngquant --force --quality 0-100 --ext .png --skip-if-larger "$REPO_DIR/oversized.png"
+    SIZE=$(stat -c%s "$REPO_DIR/oversized.png")
+    [ "$SIZE" -gt 505000 ]
+    git -C "$REPO_DIR" add oversized.png
+
+    run git -C "$REPO_DIR" hook run pre-commit
+    assert_failure
+    assert_output --partial "Image validation failed"
+    assert_output --partial "oversized.png:"
+    assert_output --partial "KB (max 493KB)"
 }
 
 @test "allows 933px width images" {
