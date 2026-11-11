@@ -49,6 +49,10 @@ The setup script:
 6. **Repos** — clones (or updates) the documentation and [odoo-vale-linter](https://github.com/felicious/odoo-vale-linter) repos
 7. **Pre-commit hook** — installs a git hook that validates `.rst` files and PNG images before each commit
 
+## Run Odoo Locally
+
+To run your own Odoo Enterprise instance at http://localhost:8069 (to check features or take screenshots), see [Run Odoo locally](docs/local-odoo-instance.md). It covers the one-time setup, how to start and stop Odoo, and troubleshooting.
+
 ## Pre-commit Hook
 
 Once installed, the hook runs automatically on `git commit` inside the documentation repo. It validates both `.rst` files and PNG images.
